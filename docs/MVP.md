@@ -205,12 +205,12 @@ Pedido direto e inequívoco executa na hora; ambíguo ou com vários blocos pede
 
 Racional da ordem: o chat só é confiável sobre cálculos já testados; por isso capacidade e distribuição vêm antes e funcionam **sem** chat.
 
-## 12. Decisões em aberto (precisam do usuário)
-1. **Modelo de linguagem do chat:** exige chamada a uma API (chave, custo, internet) e, portanto, um pequeno backend ou proxy; o `localStorage` puro não basta. Qual provedor/chave usar?
-2. **Dados no navegador × servidor:** relatórios automáticos "no dia e horário de fechamento" com o app fechado exigem servidor; no MVP local, gerar ao abrir o app após o fechamento.
-3. **Revisões:** o requisito cita "revisões já agendadas". Revisão será um tipo de bloco (com vínculo ao bloco de origem) ou um recurso à parte?
-4. **Prioridade:** "prioridade" será alta/média/baixa ou ordem numérica?
-5. **Início da semana e fuso:** segunda a domingo, fuso local (hoje assumido).
+## 12. Decisões tomadas (usuário)
+1. **Chat:** API da Anthropic (chave do usuário). A chave **nunca** vai no código nem no repositório: fica em variável de ambiente de um pequeno servidor/proxy local que recebe a mensagem, chama a API e devolve os comandos estruturados.
+2. **Relatório automático:** gerado quando o app é aberto após o horário de fechamento (sem servidor sempre ligado); migrar para execução agendada em servidor quando houver backend hospedado.
+3. **Revisão = tipo de bloco**, com vínculo ao bloco de origem (evita duplicar revisões e reaproveita calendário, capacidade e relatórios).
+4. **Prioridade:** alta / média / baixa.
+5. **Semana:** segunda a domingo, fuso local.
 
 ## 13. Análise de concorrentes (pré-requisito, antes de iniciar o Incremento 2)
 Alvos: **Estudei, Rotinizze, TickTick, Focus Keeper, Notion Calendar, Todoist e Microsoft To Do.**
