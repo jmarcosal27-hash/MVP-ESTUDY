@@ -1,0 +1,998 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudy – Organização dos Estudos</title>
+  <style>
+:root {
+  --bg: #f4f6fa; --surface: #fff; --text: #1d2433; --muted: #6a7389; --line: #dfe3ec; --accent: #3b5bdb;
+  --blue: #1971c2; --blue-bg: #d0ebff; --red: #c92a2a; --red-bg: #ffe3e3; --green: #2b8a3e; --green-bg: #d3f9d8;
+  --warn: #e67700; --hour: 52px;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14171f; --surface: #1d222d; --text: #e6e9f0; --muted: #98a1b6; --line: #333a4a; --accent: #748ffc;
+    --blue: #74c0fc; --blue-bg: #1c3550; --red: #ffa8a8; --red-bg: #4a2327; --green: #8ce99a; --green-bg: #1f4128; --warn: #ffc078; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--text); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.danger { color: var(--red); }
+input, select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; }
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.topbar h1 { font-size: 18px; margin: 0; }
+.tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+main { padding: 12px 16px 220px; }
+.muted { color: var(--muted); font-size: 12px; }
+.cal-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cal-nav { display: flex; align-items: center; gap: 6px; }
+.cal-nav h2 { font-size: 16px; margin: 0 8px; }
+.summary { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+.stat b { display: block; font-size: 15px; }
+.legend { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.chip { border-radius: 10px; padding: 1px 8px; font-size: 12px; font-weight: 600; }
+.st-em_dia { background: var(--blue-bg); color: var(--blue); }
+.st-atrasado { background: var(--red-bg); color: var(--red); }
+.st-concluido { background: var(--green-bg); color: var(--green); }
+
+.calendar { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.cal-grid { display: grid; grid-template-columns: 48px repeat(7, minmax(120px, 1fr)); min-width: 900px; }
+.cal-head { position: sticky; top: 0; z-index: 3; background: var(--surface); border-bottom: 1px solid var(--line); padding: 6px; font-size: 12px; }
+.cal-head.today { background: var(--blue-bg); }
+.cal-head .dname { font-weight: 700; font-size: 13px; }
+.cal-head .totals { color: var(--muted); }
+.gutter { position: relative; }
+.gutter span { position: absolute; right: 6px; font-size: 11px; color: var(--muted); transform: translateY(-50%); }
+.col { position: relative; border-left: 1px solid var(--line); cursor: cell;
+  background-image: linear-gradient(var(--line) 1px, transparent 1px); background-size: 100% var(--hour); }
+.col.today { background-color: color-mix(in srgb, var(--blue-bg) 35%, transparent); }
+.col.dragover { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.now-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--red); z-index: 2; pointer-events: none; }
+.block { position: absolute; left: 3px; right: 3px; border-radius: 6px; padding: 3px 6px; overflow: hidden; cursor: pointer;
+  border-left: 5px solid; font-size: 12px; z-index: 1; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+.block.st-em_dia { background: var(--blue-bg); border-color: var(--blue); color: var(--text); }
+.block.st-atrasado { background: var(--red-bg); border-color: var(--red); color: var(--text); }
+.block.st-concluido { background: var(--green-bg); border-color: var(--green); color: var(--text); }
+.block.conflict { outline: 2px solid var(--warn); }
+.block.active { box-shadow: 0 0 0 2px var(--accent); }
+.block b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.block .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.tag { font-weight: 700; font-size: 11px; }
+.tag.run { color: var(--accent); }
+.tag.warn { color: var(--warn); }
+
+.filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
+.filters label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
+table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child, td.l, th.l { text-align: left; }
+.table-wrap { overflow-x: auto; margin-bottom: 14px; }
+tr.total td { font-weight: 700; background: var(--bg); }
+tr.sub td { background: var(--bg); font-size: 13px; }
+details.rep-blocks summary { cursor: pointer; color: var(--accent); }
+
+dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); padding: 16px; width: min(640px, 94vw); max-height: 92vh; overflow: auto; }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+dialog h3 { margin-top: 0; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.form-grid label, .field { display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
+.form-grid .wide { grid-column: 1 / -1; }
+fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 12px 0; padding: 10px; }
+legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
+.preview { background: var(--bg); border-radius: 8px; padding: 8px 10px; margin-top: 10px; }
+.errors { color: var(--red); background: var(--red-bg); border-radius: 6px; padding: 6px 10px; margin: 8px 0; }
+.errors:empty { display: none; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
+.actions .left { margin-right: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
+.timer { position: fixed; right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px)); background: var(--surface); border: 2px solid var(--accent);
+  border-radius: 12px; padding: 12px 14px; box-shadow: 0 6px 24px rgba(0,0,0,.25); z-index: 10; }
+.timer.rest { border-color: var(--green); }
+.timer.extra { border-color: var(--warn); }
+.timer .phase { font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: .05em; }
+.timer .clock { font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.timer .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.timer .info { font-size: 12px; color: var(--muted); display: grid; gap: 1px; margin-top: 6px; }
+.alert-banner { background: var(--warn); color: #000; padding: 10px 16px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.alert-banner[hidden] { display: none; }
+
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>📚 Estudy</h1>
+    <nav>
+      <button data-view="calendar" class="tab active">Calendário</button>
+      <button data-view="reports" class="tab">Relatórios</button>
+      <button id="btn-settings" class="tab">⚙ Pomodoro padrão</button>
+    </nav>
+  </header>
+
+  <div id="alert-banner" class="alert-banner" hidden role="alert"></div>
+
+  <main>
+    <section id="view-calendar">
+      <div class="cal-toolbar">
+        <div class="cal-nav">
+          <button id="prev-week" aria-label="Semana anterior">‹</button>
+          <button id="today-week">Hoje</button>
+          <button id="next-week" aria-label="Próxima semana">›</button>
+          <h2 id="week-title"></h2>
+        </div>
+        <button id="new-block" class="primary">+ Novo bloco</button>
+      </div>
+      <div id="week-summary" class="summary"></div>
+      <div class="legend">
+        <span class="chip st-em_dia">Em dia</span><span class="chip st-atrasado">Atrasado</span><span class="chip st-concluido">Concluído</span>
+        <span class="muted">Clique em um horário vazio para criar · arraste um bloco para reagendar</span>
+      </div>
+      <div id="calendar" class="calendar"></div>
+    </section>
+
+    <section id="view-reports" hidden>
+      <form id="report-filters" class="filters">
+        <label>Matéria <select id="f-subject"></select></label>
+        <label>De <input type="date" id="f-from"></label>
+        <label>Até <input type="date" id="f-to"></label>
+        <label>Agrupar por
+          <select id="f-group"><option value="subject">Matéria</option><option value="week">Semana</option></select>
+        </label>
+        <button type="button" id="f-clear">Limpar</button>
+      </form>
+      <div id="report"></div>
+    </section>
+  </main>
+
+  <aside id="timer" class="timer" hidden></aside>
+
+  <dialog id="dlg-block"></dialog>
+  <dialog id="dlg-settings"></dialog>
+
+  <script>
+/* Regras de negócio do MVP-ESTUDY (sem acesso a DOM ou storage, para ser testável em Node). */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.Core = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  const MIN = 60000;
+  const DEFAULT_CONFIG = { focusMin: 25, shortMin: 5, longEvery: 4, longMin: 15 };
+
+  /* ---------- datas e horas ---------- */
+  const pad = (n) => String(n).padStart(2, '0');
+  const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const parseDate = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  const toMin = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+  const fromMin = (min) => `${pad(Math.floor(min / 60))}:${pad(min % 60)}`;
+  const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+  function mondayOf(d) {
+    const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    r.setDate(r.getDate() - ((r.getDay() + 6) % 7));
+    return r;
+  }
+  /** Data/hora local a partir de 'YYYY-MM-DD' + minutos desde 00:00 (aceita 1440 = meia-noite seguinte). */
+  const atMinutes = (dateStr, min) => { const d = parseDate(dateStr); d.setMinutes(min); return d; };
+
+  function fmtDur(ms) {
+    const totalMin = Math.round(ms / MIN);
+    if (totalMin < 60) return `${totalMin}min`;
+    const h = Math.floor(totalMin / 60), m = totalMin % 60;
+    return m ? `${h}h ${pad(m)}min` : `${h}h`;
+  }
+  function fmtClock(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return h ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+  }
+
+  /* ---------- configuração do pomodoro ---------- */
+  function validateConfig(c) {
+    const errors = [];
+    const chk = (v, label) => { if (!Number.isInteger(v) || v < 1) errors.push(`${label}: informe um número inteiro maior que zero.`); };
+    chk(c.focusMin, 'Duração do pomodoro');
+    chk(c.shortMin, 'Pausa curta');
+    chk(c.longEvery, 'Pomodoros até a pausa longa');
+    chk(c.longMin, 'Pausa longa');
+    return errors;
+  }
+
+  /* ---------- planejamento por pomodoros ---------- */
+  /** Pausa após o pomodoro i (1-based): longa a cada `longEvery`, curta nos demais; nenhuma após o último. */
+  function breaksFor(estimated, cfg) {
+    const out = [];
+    for (let i = 1; i < estimated; i++) out.push(i % cfg.longEvery === 0 ? 'long' : 'short');
+    return out;
+  }
+  function planBlock(estimated, cfg) {
+    const breaks = breaksFor(estimated, cfg);
+    const studyMin = estimated * cfg.focusMin;
+    const restMin = breaks.reduce((s, b) => s + (b === 'long' ? cfg.longMin : cfg.shortMin), 0);
+    return { studyMin, restMin, totalMin: studyMin + restMin, breaks };
+  }
+  function blockSpan(block) {
+    const p = planBlock(block.estimated, block.config);
+    const startMin = toMin(block.start);
+    return { ...p, startMin, endMin: startMin + p.totalMin };
+  }
+  /** Horário de início + duração total; avisa quando passa da meia-noite. */
+  function validateBlockPlan(b) {
+    const errors = [];
+    if (!b.subject || !b.subject.trim()) errors.push('Informe a matéria.');
+    if (!b.title || !b.title.trim()) errors.push('Informe o assunto ou título.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(b.date || '')) errors.push('Informe o dia do estudo.');
+    if (!/^\d{2}:\d{2}$/.test(b.start || '')) errors.push('Informe o horário de início.');
+    if (!Number.isInteger(b.estimated) || b.estimated < 1) errors.push('A estimativa deve ser um número inteiro de pomodoros (mínimo 1).');
+    errors.push(...validateConfig(b.config));
+    if (!errors.length && blockSpan(b).endMin > 1440) errors.push('O bloco ultrapassa a meia-noite; ajuste o horário ou a quantidade de pomodoros.');
+    return errors;
+  }
+
+  /* ---------- situação do bloco ---------- */
+  function blockStatus(block, now) {
+    if (block.completed) return 'concluido';
+    const end = atMinutes(block.date, blockSpan(block).endMin);
+    return now.getTime() > end.getTime() ? 'atrasado' : 'em_dia';
+  }
+  const STATUS_LABEL = { concluido: 'Concluído', atrasado: 'Atrasado', em_dia: 'Em dia' };
+
+  /* ---------- resultados (questões e acertos) ---------- */
+  /** Converte entrada de formulário: vazio => null (não preenchido); 0 é um valor válido. */
+  function parseCount(raw) {
+    if (raw === null || raw === undefined || (typeof raw === 'string' && raw.trim() === '')) return { value: null };
+    if (typeof raw === 'number') return Number.isInteger(raw) && raw >= 0 ? { value: raw } : { error: true };
+    return /^\d+$/.test(raw.trim()) ? { value: Number(raw.trim()) } : { error: true };
+  }
+  function validateResult(rawQuestions, rawHits) {
+    const errors = [];
+    const q = parseCount(rawQuestions), h = parseCount(rawHits);
+    if (q.error) errors.push('Questões respondidas: use apenas números inteiros não negativos.');
+    if (h.error) errors.push('Acertos: use apenas números inteiros não negativos.');
+    if (!errors.length) {
+      if (h.value !== null && q.value === null) errors.push('Informe as questões respondidas antes dos acertos.');
+      else if (h.value !== null && h.value > q.value) errors.push('Os acertos não podem superar as questões respondidas.');
+    }
+    return { errors, questions: q.value ?? null, hits: h.value ?? null };
+  }
+  function accuracy(block) {
+    const q = block.questions, h = block.hits;
+    if (q === null || q === undefined || q === 0) return { kind: 'none', label: 'Sem questões registradas' };
+    if (h === null || h === undefined) return { kind: 'pending', label: 'Resultado pendente' };
+    const rate = (h * 100) / q;
+    return { kind: 'value', rate, errors: q - h, label: `${rate.toFixed(1).replace('.', ',')}%` };
+  }
+
+  /* ---------- totais de tempo realizado ---------- */
+  const zeroTotals = () => ({ focusMs: 0, extraMs: 0, restMs: 0, interruptMs: 0, studyMs: 0 });
+  function totalsOfSegments(segments) {
+    const t = zeroTotals();
+    for (const s of segments) {
+      if (s.type === 'focus') t.focusMs += s.ms;
+      else if (s.type === 'extra') t.extraMs += s.ms;
+      else if (s.type === 'rest') t.restMs += s.ms;
+      else if (s.type === 'interruption') t.interruptMs += s.ms;
+    }
+    t.studyMs = t.focusMs + t.extraMs;
+    return t;
+  }
+  function addTotals(a, b) {
+    return { focusMs: a.focusMs + b.focusMs, extraMs: a.extraMs + b.extraMs, restMs: a.restMs + b.restMs,
+      interruptMs: a.interruptMs + b.interruptMs, studyMs: a.studyMs + b.studyMs };
+  }
+  function sessionsTotals(sessions) {
+    return (sessions || []).reduce((acc, s) => addTotals(acc, s.totals), zeroTotals());
+  }
+  function sessionsPomodoros(sessions) {
+    let complete = 0, partial = 0;
+    for (const s of sessions || []) { complete += s.completedPomodoros; partial += s.partialCycles; }
+    return { complete, partial };
+  }
+
+  /* ---------- cronômetro (máquina de estados baseada em timestamps) ----------
+   * phase: focus | extra | short | long.  state: running | paused | awaiting.
+   * 'awaiting' = pausa terminou e o próximo foco só começa por ação do usuário (nada é contado).
+   * O tempo decorrido é sempre derivado de Date.now(), então aba em segundo plano ou reload não alteram a contagem. */
+  const isBreak = (p) => p === 'short' || p === 'long';
+
+  function startSession(blockId, cfg, nowMs, id) {
+    return {
+      id: id || `s${nowMs}`, blockId, cfg: { ...cfg }, startedAt: nowMs,
+      phase: 'focus', state: 'running', phaseMs: 0, since: nowMs, pausedSince: null,
+      pomo: 1, completed: 0, lastBreakAt: 0, segments: [],
+      cycles: [{ n: 1, focusMs: 0, extraMs: 0, complete: false }],
+      alert: null, alertSeq: 0, alertAck: 0,
+    };
+  }
+  function elapsed(s, nowMs) { return s.phaseMs + (s.state === 'running' ? Math.max(0, nowMs - s.since) : 0); }
+  const phaseDuration = (s) => (s.phase === 'focus' ? s.cfg.focusMin : s.phase === 'short' ? s.cfg.shortMin : s.cfg.longMin) * MIN;
+  const curCycle = (s) => s.cycles[s.cycles.length - 1];
+  function raise(s, type) { s.alertSeq += 1; s.alert = type; }
+  function pushSeg(s, type, ms, pomodoro) { if (ms > 0) s.segments.push({ type, ms, pomodoro }); }
+
+  /** Aplica as transições automáticas (foco -> tempo extra, fim de pausa -> aguardando). Retorna true se mudou. */
+  function advance(s, nowMs) {
+    if (s.state !== 'running') return false;
+    let changed = false;
+    if (s.phase === 'focus') {
+      const f = s.cfg.focusMin * MIN;
+      if (elapsed(s, nowMs) >= f) {
+        const crossAt = s.since + (f - s.phaseMs);
+        pushSeg(s, 'focus', f, s.pomo);
+        const c = curCycle(s); c.focusMs = f; c.complete = true;
+        s.completed += 1;
+        s.phase = 'extra'; s.phaseMs = 0; s.since = crossAt;
+        raise(s, 'focus_end');
+        changed = true;
+      }
+    } else if (isBreak(s.phase)) {
+      const d = phaseDuration(s);
+      if (elapsed(s, nowMs) >= d) {
+        pushSeg(s, 'rest', d, s.pomo);
+        s.state = 'awaiting'; s.phaseMs = 0; s.since = null;
+        raise(s, 'break_end');
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  /** Fecha o período corrente gravando o segmento; não altera a fase. */
+  function closePhase(s, nowMs) {
+    const el = elapsed(s, nowMs);
+    if (s.phase === 'focus') {
+      pushSeg(s, 'focus', el, s.pomo);
+      const c = curCycle(s); c.focusMs = el; // < foco configurado => ciclo parcial
+    } else if (s.phase === 'extra') {
+      pushSeg(s, 'extra', el, s.pomo);
+      curCycle(s).extraMs += el;
+    } else if (s.state !== 'awaiting') {
+      pushSeg(s, 'rest', Math.min(el, phaseDuration(s)), s.pomo);
+    }
+    s.phaseMs = 0; s.since = null;
+  }
+  function settleInterruption(s, nowMs) {
+    if (s.state === 'paused' && s.pausedSince != null && (s.phase === 'focus' || s.phase === 'extra')) {
+      pushSeg(s, 'interruption', Math.max(0, nowMs - s.pausedSince), s.pomo);
+    }
+    s.pausedSince = null;
+  }
+
+  function pause(s, nowMs) {
+    advance(s, nowMs);
+    if (s.state !== 'running') return s;
+    s.phaseMs = elapsed(s, nowMs); s.since = null; s.state = 'paused'; s.pausedSince = nowMs;
+    return s;
+  }
+  function resume(s, nowMs) {
+    if (s.state !== 'paused') return s;
+    settleInterruption(s, nowMs);
+    s.state = 'running'; s.since = nowMs;
+    return s;
+  }
+  function nextBreakKind(s) {
+    return s.completed > 0 && s.completed % s.cfg.longEvery === 0 && s.lastBreakAt !== s.completed ? 'long' : 'short';
+  }
+  function canStartBreak(s) { return !isBreak(s.phase) && (s.state === 'running' || s.state === 'paused'); }
+  function startBreak(s, nowMs) {
+    advance(s, nowMs);
+    if (!canStartBreak(s)) return s;
+    settleInterruption(s, nowMs);
+    if (s.state === 'paused') { s.state = 'running'; s.since = nowMs; } // phaseMs já guarda o acumulado
+    closePhase(s, nowMs);
+    const kind = nextBreakKind(s);
+    s.lastBreakAt = s.completed;
+    s.phase = kind; s.phaseMs = 0; s.since = nowMs; s.state = 'running';
+    return s;
+  }
+  /** Inicia (ou retoma após pausa) um novo período de foco, sempre por ação do usuário. */
+  function startFocus(s, nowMs) {
+    advance(s, nowMs);
+    if (!isBreak(s.phase)) return s;
+    if (s.state === 'paused') { s.state = 'running'; s.since = nowMs; }
+    closePhase(s, nowMs);
+    s.pomo += 1;
+    s.cycles.push({ n: s.pomo, focusMs: 0, extraMs: 0, complete: false });
+    s.phase = 'focus'; s.phaseMs = 0; s.since = nowMs; s.state = 'running';
+    return s;
+  }
+  /** Encerra e devolve o registro da sessão a ser salvo no bloco. */
+  function finishSession(s, nowMs) {
+    advance(s, nowMs);
+    settleInterruption(s, nowMs);
+    closePhase(s, nowMs);
+    const cycles = s.cycles.filter((c) => c.focusMs > 0);
+    return {
+      id: s.id, startedAt: s.startedAt, endedAt: nowMs, cfg: s.cfg,
+      segments: s.segments, cycles,
+      totals: totalsOfSegments(s.segments),
+      completedPomodoros: cycles.filter((c) => c.complete).length,
+      partialCycles: cycles.filter((c) => !c.complete).length,
+    };
+  }
+  /** Totais da sessão em andamento, incluindo o período aberto (sem alterar a sessão). */
+  function liveTotals(s, nowMs) {
+    const t = totalsOfSegments(s.segments);
+    const el = elapsed(s, nowMs);
+    if (s.phase === 'focus') t.focusMs += Math.min(el, s.cfg.focusMin * MIN);
+    else if (s.phase === 'extra') t.extraMs += el;
+    else if (s.state !== 'awaiting') t.restMs += Math.min(el, phaseDuration(s));
+    if (s.state === 'paused' && s.pausedSince != null && (s.phase === 'focus' || s.phase === 'extra')) {
+      t.interruptMs += Math.max(0, nowMs - s.pausedSince);
+    }
+    t.studyMs = t.focusMs + t.extraMs;
+    return t;
+  }
+
+  /* ---------- sobreposições e invasão por tempo extra ---------- */
+  /** Retorna { [blockId]: [mensagens] }. Usa o término real (último estudo do dia) quando ultrapassa o previsto. */
+  function findConflicts(blocks, session, nowMs) {
+    const out = {};
+    const add = (id, msg) => { (out[id] = out[id] || []).push(msg); };
+    const byDay = {};
+    for (const b of blocks) (byDay[b.date] = byDay[b.date] || []).push(b);
+    for (const day of Object.keys(byDay)) {
+      const list = byDay[day].map((b) => {
+        const sp = blockSpan(b);
+        let realEnd = sp.endMin;
+        const ends = (b.sessions || []).map((x) => x.endedAt);
+        if (session && session.blockId === b.id) ends.push(nowMs);
+        for (const e of ends) {
+          const d = new Date(e);
+          if (isoDate(d) === day) realEnd = Math.max(realEnd, d.getHours() * 60 + d.getMinutes());
+        }
+        return { b, start: sp.startMin, end: sp.endMin, realEnd };
+      });
+      for (let i = 0; i < list.length; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+          const a = list[i], c = list[j];
+          if (a.start < c.end && c.start < a.end) {
+            add(a.b.id, `Sobrepõe "${c.b.title}" (${fromMin(c.start)}–${fromMin(c.end)})`);
+            add(c.b.id, `Sobrepõe "${a.b.title}" (${fromMin(a.start)}–${fromMin(a.end)})`);
+          }
+        }
+      }
+      for (const a of list) {
+        if (a.realEnd <= a.end) continue;
+        for (const c of list) {
+          if (c === a || c.start < a.end || c.start >= a.realEnd) continue;
+          add(a.b.id, `O estudo real (até ${fromMin(a.realEnd)}) invadiu o início de "${c.b.title}" (${fromMin(c.start)})`);
+          add(c.b.id, `Início invadido pelo estudo de "${a.b.title}"`);
+        }
+      }
+    }
+    return out;
+  }
+
+  /* ---------- relatórios ---------- */
+  function blockRealized(block, session, nowMs) {
+    let t = sessionsTotals(block.sessions);
+    if (session && session.blockId === block.id) t = addTotals(t, liveTotals(session, nowMs));
+    return t;
+  }
+  /**
+   * Consolida blocos por matéria (ou semana). Taxa geral = soma dos acertos / soma das questões
+   * dos blocos com resultado preenchido (nunca a média das taxas).
+   */
+  function consolidate(blocks, opts, now, session) {
+    const { subject = '', from = '', to = '', groupBy = 'subject' } = opts || {};
+    const nowMs = now.getTime();
+    const sel = blocks.filter((b) => (!subject || b.subject === subject) && (!from || b.date >= from) && (!to || b.date <= to));
+    const mk = (key) => ({
+      key, blocks: [], plannedStudyMin: 0, plannedRestMin: 0, plannedTotalMin: 0,
+      totals: zeroTotals(), pomodoros: { complete: 0, partial: 0 },
+      questions: 0, questionsWithResult: 0, hits: 0, errors: 0, pendingResults: 0,
+      status: { concluido: 0, atrasado: 0, em_dia: 0 }, overrun: 0,
+    });
+    const groups = new Map();
+    const total = mk('Total');
+    const feed = (g, b) => {
+      const sp = blockSpan(b), real = blockRealized(b, session, nowMs), pom = sessionsPomodoros(b.sessions);
+      g.blocks.push(b);
+      g.plannedStudyMin += sp.studyMin; g.plannedRestMin += sp.restMin; g.plannedTotalMin += sp.totalMin;
+      g.totals = addTotals(g.totals, real);
+      g.pomodoros.complete += pom.complete; g.pomodoros.partial += pom.partial;
+      g.status[blockStatus(b, now)] += 1;
+      if (real.studyMs > sp.studyMin * MIN) g.overrun += 1;
+      const acc = accuracy(b);
+      if (acc.kind === 'value') { g.questions += b.questions; g.questionsWithResult += b.questions; g.hits += b.hits; g.errors += acc.errors; }
+      else if (acc.kind === 'pending') { g.questions += b.questions; g.pendingResults += 1; }
+    };
+    for (const b of sel) {
+      const key = groupBy === 'week' ? isoDate(mondayOf(parseDate(b.date))) : b.subject;
+      if (!groups.has(key)) groups.set(key, mk(key));
+      feed(groups.get(key), b); feed(total, b);
+    }
+    const fin = (g) => { g.rate = g.questionsWithResult > 0 ? (g.hits * 100) / g.questionsWithResult : null; return g; };
+    const rows = [...groups.values()].map(fin).sort((a, b) => (a.key < b.key ? -1 : 1));
+    return { rows, total: fin(total), blocks: sel };
+  }
+
+  return {
+    MIN, DEFAULT_CONFIG, pad, isoDate, parseDate, toMin, fromMin, addDays, mondayOf, atMinutes, fmtDur, fmtClock,
+    validateConfig, breaksFor, planBlock, blockSpan, validateBlockPlan, blockStatus, STATUS_LABEL,
+    parseCount, validateResult, accuracy, totalsOfSegments, addTotals, sessionsTotals, sessionsPomodoros, zeroTotals,
+    startSession, elapsed, advance, pause, resume, startBreak, startFocus, finishSession, liveTotals,
+    canStartBreak, nextBreakKind, isBreak, phaseDuration, findConflicts, blockRealized, consolidate,
+  };
+});
+
+</script>
+  <script>
+/* Interface do MVP-ESTUDY: calendário semanal, bloco, cronômetro e relatórios. Dados em localStorage. */
+(() => {
+  'use strict';
+  const C = window.Core;
+  const KEY = 'estudy.mvp.v1';
+  const HPX = 52; // altura de uma hora no calendário (deve coincidir com --hour no CSS)
+  const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  const $ = (s, el = document) => el.querySelector(s);
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const uid = () => 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const dur = C.fmtDur;
+
+  /* ---------- estado e persistência ---------- */
+  const fresh = () => ({ settings: { config: { ...C.DEFAULT_CONFIG } }, blocks: [], session: null });
+  function load() {
+    try {
+      const r = JSON.parse(localStorage.getItem(KEY));
+      if (r && Array.isArray(r.blocks)) {
+        return { settings: { config: { ...C.DEFAULT_CONFIG, ...(r.settings && r.settings.config) } }, blocks: r.blocks, session: r.session || null };
+      }
+    } catch (e) { /* storage indisponível ou corrompido */ }
+    return fresh();
+  }
+  let state = load();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* sem persistência */ } };
+  const ui = { weekStart: C.mondayOf(new Date()), view: 'calendar', drag: null, minuteKey: '', timerSig: '' };
+  const blockById = (id) => state.blocks.find((b) => b.id === id);
+
+  /* ---------- áudio e avisos ---------- */
+  let audio = null;
+  function unlockAudio() {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+    } catch (e) { /* sem áudio */ }
+  }
+  function beep(kind) {
+    if (!audio) return;
+    const notes = kind === 'focus_end' ? [880, 880, 880] : [523, 659, 784];
+    notes.forEach((f, i) => {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(audio.destination);
+      const t = audio.currentTime + i * 0.35;
+      g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      o.start(t); o.stop(t + 0.32);
+    });
+  }
+  const ALERT_TEXT = {
+    focus_end: '⏰ Foco encerrado! O tempo extra já está sendo contado como estudo. Continue, pause, inicie a pausa ou encerre a sessão.',
+    break_end: '☕ Pausa encerrada! O próximo foco só começa quando você clicar em "Iniciar foco".',
+  };
+  function showBanner(type) {
+    const el = $('#alert-banner');
+    el.innerHTML = `<span>${esc(ALERT_TEXT[type])}</span><button id="banner-close">Entendi</button>`;
+    el.hidden = false;
+  }
+  function handleAlert() {
+    const s = state.session;
+    if (!s || s.alertSeq <= s.alertAck) return;
+    s.alertAck = s.alertSeq; save();
+    beep(s.alert); showBanner(s.alert);
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+      try { new Notification('Estudy', { body: ALERT_TEXT[s.alert] }); } catch (e) { /* ignora */ }
+    }
+  }
+
+  /* ---------- calendário ---------- */
+  function realizedFor(b) { return C.blockRealized(b, state.session, Date.now()); }
+
+  function renderCalendar() {
+    const now = new Date(), nowMs = now.getTime();
+    const days = [...Array(7)].map((_, i) => C.addDays(ui.weekStart, i));
+    const iso = days.map(C.isoDate), todayIso = C.isoDate(now);
+    const wb = state.blocks.filter((b) => iso.includes(b.date));
+    const hStart = Math.min(6, ...wb.map((b) => Math.floor(C.toMin(b.start) / 60)));
+    const conflicts = C.findConflicts(state.blocks, state.session, nowMs);
+    $('#week-title').textContent = `${days[0].toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} – ${days[6].toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+    const sum = (list) => list.reduce((a, b) => {
+      const sp = C.blockSpan(b), r = realizedFor(b);
+      a.pStudy += sp.studyMin * C.MIN; a.pRest += sp.restMin * C.MIN; a.real = C.addTotals(a.real, r); return a;
+    }, { pStudy: 0, pRest: 0, real: C.zeroTotals() });
+    const week = sum(wb);
+    $('#week-summary').innerHTML = [
+      ['Planejado (estudo)', dur(week.pStudy)], ['Planejado (descanso)', dur(week.pRest)],
+      ['Estudado (foco + extra)', dur(week.real.studyMs)], ['… dos quais extra', dur(week.real.extraMs)],
+      ['Descanso realizado', dur(week.real.restMs)], ['Interrupções', dur(week.real.interruptMs)],
+    ].map(([l, v]) => `<div class="stat"><span class="muted">${l}</span><b>${v}</b></div>`).join('');
+
+    let html = '<div class="cal-grid"><div class="cal-head"></div>';
+    days.forEach((d, i) => {
+      const t = sum(wb.filter((b) => b.date === iso[i]));
+      html += `<div class="cal-head${iso[i] === todayIso ? ' today' : ''}"><div class="dname">${DAYS[i]} ${d.getDate()}/${d.getMonth() + 1}${iso[i] === todayIso ? ' · hoje' : ''}</div>
+        <div class="totals">Plan.: ${dur(t.pStudy)} + ${dur(t.pRest)} desc.<br>Estudado: ${dur(t.real.studyMs)} · desc. ${dur(t.real.restMs)}</div></div>`;
+    });
+    html += `<div class="gutter" style="height:${(24 - hStart) * HPX}px">${[...Array(24 - hStart)].map((_, i) => `<span style="top:${i * HPX}px">${C.pad(hStart + i)}:00</span>`).join('')}</div>`;
+    days.forEach((d, i) => {
+      html += `<div class="col${iso[i] === todayIso ? ' today' : ''}" data-date="${iso[i]}" data-hstart="${hStart}" style="height:${(24 - hStart) * HPX}px">`;
+      for (const b of wb.filter((x) => x.date === iso[i])) html += blockHtml(b, hStart, now, conflicts[b.id]);
+      if (iso[i] === todayIso) {
+        const nm = now.getHours() * 60 + now.getMinutes();
+        if (nm >= hStart * 60) html += `<div class="now-line" style="top:${((nm - hStart * 60) / 60) * HPX}px"></div>`;
+      }
+      html += '</div>';
+    });
+    $('#calendar').innerHTML = html + '</div>';
+  }
+
+  function blockHtml(b, hStart, now, conflict) {
+    const sp = C.blockSpan(b), st = C.blockStatus(b, now);
+    const active = state.session && state.session.blockId === b.id;
+    const height = Math.max(30, (sp.totalMin / 60) * HPX - 2);
+    const tip = [`${b.subject} — ${b.title}`, `${b.start}–${C.fromMin(sp.endMin)}`,
+      `Estudo ${dur(sp.studyMin * C.MIN)} + descanso ${dur(sp.restMin * C.MIN)}`, `Situação: ${C.STATUS_LABEL[st]}`, ...(conflict || [])].join('\n');
+    return `<div class="block st-${st}${conflict ? ' conflict' : ''}${active ? ' active' : ''}" draggable="true" data-id="${b.id}" title="${esc(tip)}"
+      style="top:${((sp.startMin - hStart * 60) / 60) * HPX}px;height:${height}px">
+      <b>${esc(b.subject)} · ${esc(b.title)}</b>
+      <span class="meta">${b.start}–${C.fromMin(sp.endMin)} · 🍅 ${b.estimated}</span>
+      <span class="tag">${C.STATUS_LABEL[st]}</span>${active ? ' <span class="tag run">● Em andamento</span>' : ''}${conflict ? ' <span class="tag warn">⚠ Conflito</span>' : ''}
+    </div>`;
+  }
+
+  function bindCalendar() {
+    const cal = $('#calendar');
+    cal.addEventListener('click', (e) => {
+      const blk = e.target.closest('.block');
+      if (blk) return openBlockDialog({ id: blk.dataset.id });
+      const col = e.target.closest('.col');
+      if (!col) return;
+      const y = e.clientY - col.getBoundingClientRect().top;
+      const min = Number(col.dataset.hstart) * 60 + Math.floor((y / HPX) * 4) * 15;
+      openBlockDialog({ date: col.dataset.date, start: C.fromMin(Math.min(min, 1425)) });
+    });
+    cal.addEventListener('dragstart', (e) => {
+      const blk = e.target.closest('.block');
+      if (!blk) return;
+      ui.drag = { id: blk.dataset.id, grab: e.clientY - blk.getBoundingClientRect().top };
+      e.dataTransfer.setData('text/plain', blk.dataset.id); e.dataTransfer.effectAllowed = 'move';
+    });
+    cal.addEventListener('dragover', (e) => {
+      const col = e.target.closest('.col');
+      if (col && ui.drag) { e.preventDefault(); col.classList.add('dragover'); }
+    });
+    cal.addEventListener('dragleave', (e) => { const col = e.target.closest('.col'); if (col) col.classList.remove('dragover'); });
+    cal.addEventListener('dragend', () => { ui.drag = null; renderCalendar(); });
+    cal.addEventListener('drop', (e) => {
+      const col = e.target.closest('.col');
+      if (!col || !ui.drag) return;
+      e.preventDefault();
+      const b = blockById(ui.drag.id), total = C.blockSpan(b).totalMin;
+      const y = e.clientY - col.getBoundingClientRect().top - ui.drag.grab;
+      let min = Math.round((Number(col.dataset.hstart) * 60 + (y / HPX) * 60) / 15) * 15;
+      min = Math.max(0, Math.min(min, 1440 - total));
+      b.date = col.dataset.date; b.start = C.fromMin(min);
+      ui.drag = null; save(); renderCalendar();
+    });
+  }
+
+  /* ---------- diálogo do bloco (cadastro, detalhes e execução) ---------- */
+  const numVal = (v) => (v === '' ? NaN : Number(v));
+  function sessionsHtml(b) {
+    if (!b.sessions.length) return '<p class="muted">Nenhuma sessão registrada ainda.</p>';
+    return '<ul>' + b.sessions.map((s) => {
+      const t = s.totals, d = new Date(s.startedAt);
+      return `<li>${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}: foco ${dur(t.focusMs)} + extra ${dur(t.extraMs)} = <b>${dur(t.studyMs)}</b>
+        · descanso ${dur(t.restMs)} · interrupções ${dur(t.interruptMs)} · ${s.completedPomodoros} pomodoro(s)${s.partialCycles ? ` + ${s.partialCycles} parcial` : ''}</li>`;
+    }).join('') + '</ul>';
+  }
+
+  function openBlockDialog({ id, date, start }) {
+    const dlg = $('#dlg-block');
+    const b = id ? blockById(id) : null;
+    const v = b || { subject: '', title: '', date: date || C.isoDate(new Date()), start: start || '08:00', estimated: 1,
+      config: { ...state.settings.config }, pdf: '', pages: '', studied: '', questions: null, hits: null, notes: '', completed: false, sessions: [] };
+    const cfg = v.config;
+    const st = b ? C.blockStatus(b, new Date()) : null;
+    const active = b && state.session && state.session.blockId === b.id;
+    const real = b ? realizedFor(b) : null, pom = b ? C.sessionsPomodoros(b.sessions) : null;
+    const subjects = [...new Set(state.blocks.map((x) => x.subject))];
+    dlg.innerHTML = `<form method="dialog" id="block-form" novalidate>
+      <h3>${b ? 'Bloco de estudo' : 'Novo bloco de estudo'} ${b ? `<span class="chip st-${st}">${C.STATUS_LABEL[st]}</span>${active ? ' <span class="tag run">● Em andamento</span>' : ''}` : ''}</h3>
+      <fieldset><legend>Planejamento</legend><div class="form-grid">
+        <label>Matéria *<input name="subject" list="subjects" value="${esc(v.subject)}" required></label>
+        <label>Assunto / título *<input name="title" value="${esc(v.title)}" required></label>
+        <label>Dia *<input type="date" name="date" value="${v.date}" required></label>
+        <label>Início *<input type="time" name="start" value="${v.start}" required></label>
+        <label>Pomodoros estimados *<input type="number" name="estimated" min="1" step="1" value="${v.estimated}" required></label>
+        <label>PDF (nome ou link)<input name="pdf" value="${esc(v.pdf)}"></label>
+        <label>Páginas / trecho previsto<input name="pages" value="${esc(v.pages)}"></label>
+      </div>
+      <datalist id="subjects">${subjects.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
+      <details style="margin-top:8px"><summary>Pomodoro deste bloco (copiado do padrão; ajuste se precisar)</summary><div class="form-grid" style="margin-top:8px">
+        <label>Foco (min)<input type="number" name="focusMin" min="1" step="1" value="${cfg.focusMin}"></label>
+        <label>Pausa curta (min)<input type="number" name="shortMin" min="1" step="1" value="${cfg.shortMin}"></label>
+        <label>Pomodoros até a pausa longa<input type="number" name="longEvery" min="1" step="1" value="${cfg.longEvery}"></label>
+        <label>Pausa longa (min)<input type="number" name="longMin" min="1" step="1" value="${cfg.longMin}"></label>
+        <div class="wide"><button type="button" id="use-default">Usar configuração padrão atual</button></div>
+      </div></details>
+      <div class="preview" id="plan-preview"></div></fieldset>
+      ${b ? `<fieldset><legend>Execução</legend><div class="form-grid">
+        <label class="wide">Conteúdo / páginas efetivamente estudados<input name="studied" value="${esc(v.studied)}"></label>
+        <label>Questões respondidas<input name="questions" inputmode="numeric" value="${v.questions ?? ''}"></label>
+        <label>Acertos<input name="hits" inputmode="numeric" value="${v.hits ?? ''}"></label>
+        <div class="field">Erros / Taxa de acerto<b id="res-calc"></b></div>
+        <label class="wide">Observações (dificuldades, conteúdo pendente)<textarea name="notes" rows="3">${esc(v.notes)}</textarea></label></div>
+        <div class="preview"><b>Realizado:</b> foco regular ${dur(real.focusMs)} + extra ${dur(real.extraMs)} = <b>${dur(real.studyMs)}</b> estudados
+          · descanso ${dur(real.restMs)} · interrupções ${dur(real.interruptMs)}<br>
+          Pomodoros completos: ${pom.complete} de ${v.estimated} estimados · ciclos parciais: ${pom.partial}</div>
+        <details style="margin-top:8px"><summary>Sessões (${v.sessions.length})</summary>${sessionsHtml(b)}</details></fieldset>` : ''}
+      <div class="errors" id="block-errors"></div>
+      <div class="actions">
+        <div class="left">${b ? `<button type="button" id="b-timer" class="primary">${active ? '⏱ Abrir cronômetro' : (b.sessions.length ? '⏱ Retomar estudo (nova sessão)' : '⏱ Iniciar cronômetro')}</button>
+          <button type="button" id="b-toggle">${b.completed ? '↺ Reabrir bloco' : '✔ Marcar como concluído'}</button>
+          <button type="button" id="b-delete" class="danger">Excluir</button>` : ''}</div>
+        <button type="button" id="b-cancel">Fechar</button><button type="submit" class="primary">Salvar</button>
+      </div></form>`;
+    const form = $('#block-form', dlg);
+    const read = (n) => (form.elements[n] ? form.elements[n].value : '');
+
+    const gatherPlan = () => ({
+      subject: read('subject').trim(), title: read('title').trim(), date: read('date'), start: read('start'),
+      estimated: numVal(read('estimated')), pdf: read('pdf').trim(), pages: read('pages').trim(),
+      config: { focusMin: numVal(read('focusMin')), shortMin: numVal(read('shortMin')), longEvery: numVal(read('longEvery')), longMin: numVal(read('longMin')) },
+    });
+    const refresh = () => {
+      const p = gatherPlan(), errs = C.validateBlockPlan(p);
+      const okCfg = !C.validateConfig(p.config).length && Number.isInteger(p.estimated) && p.estimated >= 1;
+      if (okCfg) {
+        const sp = C.planBlock(p.estimated, p.config), end = C.fromMin(C.toMin(p.start || '00:00') + sp.totalMin);
+        $('#plan-preview', dlg).innerHTML = `Tempo previsto de estudo: <b>${dur(sp.studyMin * C.MIN)}</b> · descanso: <b>${dur(sp.restMin * C.MIN)}</b> ·
+          duração reservada: <b>${dur(sp.totalMin * C.MIN)}</b> · término previsto: <b>${end}</b>`;
+      } else $('#plan-preview', dlg).textContent = 'Preencha estimativa e pomodoro com inteiros positivos para ver os cálculos.';
+      if (b) {
+        const r = C.validateResult(read('questions'), read('hits'));
+        const a = C.accuracy({ questions: r.questions, hits: r.hits });
+        $('#res-calc', dlg).textContent = r.errors.length ? '—' : (a.kind === 'value' ? `${a.errors} erro(s) · ${a.label}` : a.label);
+      }
+      return errs;
+    };
+    // Valida e devolve os dados; null se houver erros (exibidos no diálogo).
+    const collect = () => {
+      const errs = refresh(), data = gatherPlan();
+      if (b) {
+        const r = C.validateResult(read('questions'), read('hits'));
+        errs.push(...r.errors);
+        Object.assign(data, { studied: read('studied').trim(), notes: read('notes').trim(), questions: r.questions, hits: r.hits });
+      }
+      $('#block-errors', dlg).innerHTML = errs.map((m) => `<div>${esc(m)}</div>`).join('');
+      return errs.length ? null : data;
+    };
+    const commit = (data) => {
+      if (b) Object.assign(b, data);
+      else state.blocks.push({ id: uid(), completed: false, sessions: [], studied: '', questions: null, hits: null, notes: '', ...data });
+      save();
+    };
+    form.addEventListener('input', refresh);
+    $('#use-default', dlg).onclick = () => { Object.entries(state.settings.config).forEach(([k, val]) => { form.elements[k].value = val; }); refresh(); };
+    $('#b-cancel', dlg).onclick = () => dlg.close();
+    form.addEventListener('submit', (e) => { e.preventDefault(); const d = collect(); if (!d) return; commit(d); dlg.close(); render(); });
+    if (b) {
+      $('#b-delete', dlg).onclick = () => {
+        if (!confirm('Excluir este bloco e todo o seu histórico de sessões?')) return;
+        if (active) state.session = null;
+        state.blocks = state.blocks.filter((x) => x.id !== b.id); save(); dlg.close(); render();
+      };
+      $('#b-toggle', dlg).onclick = () => {
+        const d = collect(); if (!d) return;
+        Object.assign(d, { completed: !b.completed, completedAt: b.completed ? null : Date.now() });
+        commit(d); dlg.close(); render();
+      };
+      $('#b-timer', dlg).onclick = () => {
+        const d = collect(); if (!d) return;
+        commit(d); startTimer(b.id) && dlg.close(); render();
+      };
+    }
+    refresh();
+    dlg.showModal();
+  }
+
+  /* ---------- cronômetro ---------- */
+  function startTimer(blockId) {
+    unlockAudio();
+    if ('Notification' in window && Notification.permission === 'default') { try { Notification.requestPermission(); } catch (e) { /* ignora */ } }
+    if (state.session) {
+      if (state.session.blockId === blockId) { $('#timer').scrollIntoView({ block: 'end' }); return true; }
+      const other = blockById(state.session.blockId);
+      alert(`Já existe um cronômetro ativo no bloco "${other ? other.title : '?'}". Encerre-o antes de iniciar outro.`);
+      return false;
+    }
+    const b = blockById(blockId);
+    state.session = C.startSession(blockId, b.config, Date.now());
+    save(); return true;
+  }
+  function timerAction(act) {
+    const s = state.session; if (!s) return;
+    const now = Date.now();
+    unlockAudio();
+    if (act === 'pause') C.pause(s, now);
+    else if (act === 'resume') C.resume(s, now);
+    else if (act === 'break') C.startBreak(s, now);
+    else if (act === 'focus') C.startFocus(s, now);
+    else if (act === 'open') return openBlockDialog({ id: s.blockId });
+    else if (act === 'finish') {
+      C.advance(s, now);
+      const lt = C.liveTotals(s, now);
+      if (!confirm(`Encerrar a sessão e salvar ${dur(lt.studyMs)} de estudo (${dur(lt.extraMs)} de tempo extra)?`)) return;
+      const rec = C.finishSession(s, now), b = blockById(s.blockId);
+      if (b && (rec.totals.studyMs > 0 || rec.totals.restMs > 0)) b.sessions.push(rec);
+      state.session = null; $('#alert-banner').hidden = true; document.title = 'Estudy – Organização dos Estudos';
+    }
+    save(); handleAlert(); render();
+  }
+  function renderTimer() {
+    const el = $('#timer'), s = state.session;
+    if (!s) { el.hidden = true; ui.timerSig = ''; return; }
+    const b = blockById(s.blockId);
+    if (!b) { state.session = null; save(); el.hidden = true; return; }
+    const now = Date.now(), sig = [s.id, s.phase, s.state].join('|');
+    if (sig !== ui.timerSig) {
+      ui.timerSig = sig;
+      const brk = C.isBreak(s.phase), focusLike = !brk;
+      const kind = C.nextBreakKind(s) === 'long' ? 'longa' : 'curta';
+      const btn = (a, label, cls = '') => `<button data-act="${a}" class="${cls}">${label}</button>`;
+      let buttons = '';
+      if (s.state === 'awaiting') buttons = btn('focus', '▶ Iniciar foco', 'primary');
+      else if (s.state === 'paused') buttons = btn('resume', '▶ Retomar', 'primary') + (focusLike ? btn('break', `☕ Pausa ${kind}`) : btn('focus', 'Iniciar foco'));
+      else buttons = btn('pause', '⏸ Pausar') + (focusLike ? btn('break', `☕ Iniciar pausa ${kind}`) : btn('focus', 'Pular pausa e iniciar foco'));
+      buttons += btn('finish', '⏹ Encerrar', 'danger') + btn('open', 'Bloco');
+      el.className = `timer ${s.phase === 'extra' ? 'extra' : brk ? 'rest' : ''}`;
+      el.innerHTML = `<div class="muted" id="t-block"></div><div class="phase" id="t-phase"></div><div class="clock" id="t-clock"></div>
+        <div class="row">${buttons}</div><div class="info" id="t-info"></div>`;
+      $('#t-block', el).textContent = `${b.subject} — ${b.title}`;
+    }
+    const el0 = C.elapsed(s, now), PH = { focus: 'Foco', extra: 'Tempo extra', short: 'Pausa curta', long: 'Pausa longa' };
+    let label = PH[s.phase], clock;
+    if (s.state === 'awaiting') { label = 'Pausa encerrada — aguardando você'; clock = '00:00'; }
+    else if (s.phase === 'extra') clock = '+' + C.fmtClock(el0);
+    else clock = C.fmtClock(C.phaseDuration(s) - el0);
+    if (s.state === 'paused') label += ' (pausado)';
+    const prev = C.sessionsPomodoros(b.sessions), lt = C.liveTotals(s, now), tot = C.blockRealized(b, s, now);
+    $('#t-phase', el).textContent = label;
+    $('#t-clock', el).textContent = clock;
+    $('#t-info', el).innerHTML = `<span>🍅 Concluídos: <b>${prev.complete + s.completed}</b> de <b>${b.estimated}</b> estimados</span>
+      <span>Estudo total no bloco: <b>${dur(tot.studyMs)}</b> (extra ${dur(tot.extraMs)})</span>
+      <span>Nesta sessão: foco ${dur(lt.focusMs)} · extra ${dur(lt.extraMs)} · descanso ${dur(lt.restMs)} · interrupções ${dur(lt.interruptMs)}</span>`;
+    el.hidden = false;
+    document.title = `${clock} · ${label} – Estudy`;
+  }
+
+  /* ---------- configurações ---------- */
+  function openSettings() {
+    const dlg = $('#dlg-settings'), c = state.settings.config;
+    dlg.innerHTML = `<form method="dialog" id="set-form" novalidate><h3>Pomodoro padrão</h3>
+      <p class="muted">Vale para novos blocos. Blocos e sessões já criados mantêm a configuração que tinham.</p>
+      <div class="form-grid">
+        <label>Foco (min)<input type="number" name="focusMin" min="1" step="1" value="${c.focusMin}"></label>
+        <label>Pausa curta (min)<input type="number" name="shortMin" min="1" step="1" value="${c.shortMin}"></label>
+        <label>Pomodoros até a pausa longa<input type="number" name="longEvery" min="1" step="1" value="${c.longEvery}"></label>
+        <label>Pausa longa (min)<input type="number" name="longMin" min="1" step="1" value="${c.longMin}"></label></div>
+      <div class="errors" id="set-errors"></div>
+      <div class="actions"><div class="left"><button type="button" id="demo">Carregar dados de exemplo</button><button type="button" id="wipe" class="danger">Apagar todos os dados</button></div>
+        <button type="button" id="set-cancel">Fechar</button><button type="submit" class="primary">Salvar</button></div></form>`;
+    const f = $('#set-form', dlg);
+    $('#set-cancel', dlg).onclick = () => dlg.close();
+    f.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const cfg = {}; ['focusMin', 'shortMin', 'longEvery', 'longMin'].forEach((k) => { cfg[k] = numVal(f.elements[k].value); });
+      const errs = C.validateConfig(cfg);
+      $('#set-errors', dlg).innerHTML = errs.map((m) => `<div>${esc(m)}</div>`).join('');
+      if (errs.length) return;
+      state.settings.config = cfg; save(); dlg.close();
+    });
+    $('#demo', dlg).onclick = () => { loadDemo(); dlg.close(); render(); };
+    $('#wipe', dlg).onclick = () => { if (confirm('Apagar blocos, sessões e configurações?')) { state = fresh(); save(); dlg.close(); render(); } };
+    dlg.showModal();
+  }
+  function loadDemo() {
+    const mon = ui.weekStart, M = C.MIN;
+    const cfg = { focusMin: 50, shortMin: 10, longEvery: 4, longMin: 30 };
+    const mk = (dayOff, start, subject, title, est, extra = {}) => ({ id: uid(), subject, title, date: C.isoDate(C.addDays(mon, dayOff)), start, estimated: est,
+      config: { ...cfg }, pdf: '', pages: '', studied: '', questions: null, hits: null, notes: '', completed: false, sessions: [], ...extra });
+    const sess = (focus, extra, rest, pomos, partial = 0) => ({ id: uid(), startedAt: mon.getTime() + 9 * 3600e3, endedAt: mon.getTime() + 12 * 3600e3, cfg: { ...cfg }, segments: [], cycles: [],
+      totals: { focusMs: focus * M, extraMs: extra * M, restMs: rest * M, interruptMs: 0, studyMs: (focus + extra) * M }, completedPomodoros: pomos, partialCycles: partial });
+    state.blocks.push(
+      mk(0, '08:00', 'Direito Constitucional', 'Direitos fundamentais', 3, { completed: true, questions: 20, hits: 14, pdf: 'dc.pdf', pages: 'p. 10–35', sessions: [sess(150, 12, 20, 3)] }),
+      mk(1, '14:00', 'Matemática', 'Porcentagem', 2, { questions: 15, sessions: [sess(60, 0, 10, 1, 1)] }),
+      mk(2, '09:00', 'Português', 'Crase e regência', 2, { questions: 30, hits: 27, completed: true, sessions: [sess(100, 5, 10, 2)] }),
+      mk(3, '19:00', 'Matemática', 'Razão e proporção', 3, { questions: 10, hits: 4, notes: 'Dificuldade em regra de três composta.' }),
+      mk(4, '20:00', 'Direito Constitucional', 'Controle de constitucionalidade', 2),
+    );
+    save();
+  }
+
+  /* ---------- relatórios ---------- */
+  const rate = (g) => (g.rate !== null ? g.rate.toFixed(1).replace('.', ',') + '%' : (g.pendingResults ? 'Resultado pendente' : 'Sem questões registradas'));
+  function renderReports() {
+    const sel = $('#f-subject'), cur = sel.value;
+    sel.innerHTML = '<option value="">Todas</option>' + [...new Set(state.blocks.map((b) => b.subject))].sort().map((s) => `<option${s === cur ? ' selected' : ''}>${esc(s)}</option>`).join('');
+    const opts = { subject: sel.value, from: $('#f-from').value, to: $('#f-to').value, groupBy: $('#f-group').value };
+    const now = new Date(), r = C.consolidate(state.blocks, opts, now, state.session);
+    if (!r.blocks.length) { $('#report').innerHTML = '<p class="muted">Nenhum bloco encontrado para os filtros escolhidos.</p>'; return; }
+    const lbl = opts.groupBy === 'week' ? (k) => `Semana de ${C.parseDate(k).toLocaleDateString('pt-BR')}` : (k) => k;
+    const row = (g, label, cls = '') => `<tr class="${cls}"><td>${esc(label)}</td><td>${g.blocks.length}</td><td>${dur(g.plannedStudyMin * C.MIN)}</td><td>${dur(g.plannedRestMin * C.MIN)}</td>
+      <td>${dur(g.totals.studyMs)}</td><td>${dur(g.totals.focusMs)}</td><td>${dur(g.totals.extraMs)}</td><td>${dur(g.totals.restMs)}</td><td>${dur(g.totals.interruptMs)}</td>
+      <td>${g.pomodoros.complete}/${g.pomodoros.partial}</td><td>${g.questions}</td><td>${g.hits}</td><td>${g.errors}</td><td>${rate(g)}</td>
+      <td>${g.status.concluido}</td><td>${g.status.atrasado}</td><td>${g.status.em_dia}</td><td>${g.overrun}</td></tr>`;
+    let html = `<div class="table-wrap"><table><thead><tr><th class="l">${opts.groupBy === 'week' ? 'Período' : 'Matéria'}</th><th>Blocos</th><th>Estudo previsto</th><th>Descanso previsto</th>
+      <th>Estudado (total)</th><th>Foco regular</th><th>Tempo extra</th><th>Descanso real</th><th>Interrupções</th><th>Pomodoros (compl./parc.)</th>
+      <th>Questões</th><th>Acertos</th><th>Erros</th><th>Taxa de acerto</th><th>Concluídos</th><th>Atrasados</th><th>Em dia</th><th>Acima do previsto</th></tr></thead><tbody>
+      ${r.rows.map((g) => row(g, lbl(g.key))).join('')}${r.rows.length > 1 ? row(r.total, 'Total geral', 'total') : ''}</tbody></table></div>
+      <p class="muted">Taxa de acerto = soma dos acertos ÷ soma das questões dos blocos com resultado preenchido (não é a média das taxas). Questões sem resultado: ${r.total.questions - r.total.questionsWithResult}.</p>`;
+    // pontos de atenção
+    const ranked = r.rows.filter((g) => g.rate !== null).sort((a, b) => a.rate - b.rate);
+    const late = r.blocks.filter((b) => C.blockStatus(b, now) === 'atrasado');
+    const notes = r.blocks.filter((b) => !b.completed && b.notes);
+    html += '<h3>Pontos de atenção</h3><ul>' +
+      (ranked.length > 1 ? `<li>Menor taxa de acerto: <b>${esc(lbl(ranked[0].key))}</b> (${rate(ranked[0])}).</li>` : '') +
+      `<li>${r.total.overrun} bloco(s) com mais tempo estudado do que o previsto.</li><li>${late.length} bloco(s) atrasado(s) e não concluído(s).</li>` +
+      notes.map((b) => `<li>Pendência em <b>${esc(b.subject)} – ${esc(b.title)}</b>: ${esc(b.notes)}</li>`).join('') + '</ul>';
+    // blocos que compõem os resultados
+    html += '<h3>Blocos do resultado</h3>' + r.rows.map((g) => `<details class="rep-blocks"><summary>${esc(lbl(g.key))} (${g.blocks.length})</summary><div class="table-wrap"><table>
+      <thead><tr><th class="l">Dia</th><th class="l">Bloco</th><th>Situação</th><th>Previsto</th><th>Estudado</th><th>Extra</th><th>Questões</th><th>Acertos</th><th>Taxa</th></tr></thead><tbody>
+      ${g.blocks.slice().sort((a, b) => (a.date + a.start < b.date + b.start ? -1 : 1)).map((b) => {
+        const sp = C.blockSpan(b), re = C.blockRealized(b, state.session, now.getTime()), a = C.accuracy(b), st = C.blockStatus(b, now);
+        return `<tr><td class="l">${C.parseDate(b.date).toLocaleDateString('pt-BR')} ${b.start}</td><td class="l"><a href="#" data-open-block="${b.id}">${esc(b.subject)} – ${esc(b.title)}</a></td>
+          <td><span class="chip st-${st}">${C.STATUS_LABEL[st]}</span></td><td>${dur(sp.studyMin * C.MIN)}</td><td>${dur(re.studyMs)}</td><td>${dur(re.extraMs)}</td>
+          <td>${b.questions ?? '—'}</td><td>${b.hits ?? '—'}</td><td>${a.label}</td></tr>`;
+      }).join('')}</tbody></table></div></details>`).join('');
+    $('#report').innerHTML = html;
+  }
+
+  /* ---------- orquestração ---------- */
+  function setView(v) {
+    ui.view = v;
+    $('#view-calendar').hidden = v !== 'calendar'; $('#view-reports').hidden = v !== 'reports';
+    document.querySelectorAll('[data-view]').forEach((t) => t.classList.toggle('active', t.dataset.view === v));
+    render();
+  }
+  function render() {
+    if (ui.view === 'calendar') renderCalendar(); else renderReports();
+    renderTimer();
+  }
+  function tick() {
+    const s = state.session;
+    if (s && C.advance(s, Date.now())) { save(); handleAlert(); render(); return; }
+    renderTimer();
+    const key = new Date().toISOString().slice(0, 16);
+    if (key !== ui.minuteKey && !ui.drag && !document.querySelector('dialog[open]')) { ui.minuteKey = key; render(); }
+  }
+
+  document.addEventListener('click', (e) => {
+    unlockAudio();
+    const a = e.target.closest('[data-act]'); if (a && a.closest('#timer')) timerAction(a.dataset.act);
+    if (e.target.id === 'banner-close') $('#alert-banner').hidden = true;
+    const ob = e.target.closest('[data-open-block]'); if (ob) { e.preventDefault(); openBlockDialog({ id: ob.dataset.openBlock }); }
+  });
+  document.addEventListener('keydown', unlockAudio, { once: true });
+  document.querySelectorAll('[data-view]').forEach((t) => t.addEventListener('click', () => setView(t.dataset.view)));
+  $('#btn-settings').addEventListener('click', openSettings);
+  $('#prev-week').addEventListener('click', () => { ui.weekStart = C.addDays(ui.weekStart, -7); render(); });
+  $('#next-week').addEventListener('click', () => { ui.weekStart = C.addDays(ui.weekStart, 7); render(); });
+  $('#today-week').addEventListener('click', () => { ui.weekStart = C.mondayOf(new Date()); render(); });
+  $('#new-block').addEventListener('click', () => openBlockDialog({}));
+  $('#report-filters').addEventListener('input', renderReports);
+  $('#f-clear').addEventListener('click', () => { $('#report-filters').reset(); renderReports(); });
+  window.addEventListener('storage', (e) => { if (e.key === KEY) { state = load(); ui.timerSig = ''; render(); } });
+  document.addEventListener('visibilitychange', tick);
+  bindCalendar();
+  render();
+  handleAlert();
+  setInterval(tick, 500);
+})();
+
+</script>
+</body>
+</html>
