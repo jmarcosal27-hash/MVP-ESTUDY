@@ -97,3 +97,10 @@ legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
 .cap-warn { flex-basis: 100%; background: var(--red-bg); color: var(--red); border-radius: 8px; padding: 6px 10px; font-weight: 600; }
 .form-grid label.check { display: flex; gap: 6px; align-items: center; color: var(--text); }
 .form-grid label.check input { width: auto; }
+
+.chat-drawer { position: fixed; right: 12px; top: 64px; bottom: 12px; width: min(380px, calc(100vw - 24px)); z-index: 9; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; padding: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.2); display: flex; flex-direction: column; }
+.chat-drawer[hidden] { display: none; }
+body.has-timer .chat-drawer { bottom: 270px; }
+@media (min-width: 1100px) { body.chat-open main { margin-right: 404px; } }
+.chat-drawer.chat { height: auto; }

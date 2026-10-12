@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Estudy – Organização dos Estudos</title>
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/chat.css">
 </head>
 <body>
   <header class="topbar">
@@ -12,6 +13,7 @@
     <nav>
       <button data-view="calendar" class="tab active">Calendário</button>
       <button data-view="reports" class="tab">Relatórios</button>
+      <button id="btn-chat" class="tab">💬 Assistente</button>
       <button id="btn-settings" class="tab">⚙ Pomodoro padrão</button>
     </nav>
   </header>
@@ -52,6 +54,7 @@
     </section>
   </main>
 
+  <aside id="chat-drawer" class="chat-drawer" hidden></aside>
   <aside id="timer" class="timer" hidden></aside>
 
   <dialog id="dlg-block"></dialog>
@@ -60,6 +63,8 @@
 
   <script src="js/core.js"></script>
   <script src="js/capacity.js"></script>
+  <script src="js/commands.js"></script>
+  <script src="js/chat.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

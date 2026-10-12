@@ -605,6 +605,8 @@
   function render() {
     if (ui.view === 'calendar') renderCalendar(); else renderReports();
     renderTimer();
+    document.body.classList.toggle('has-timer', !!state.session);
+    if (chat) chat.refresh();
   }
   function tick() {
     const s = state.session;
@@ -632,6 +634,20 @@
   $('#f-clear').addEventListener('click', () => { $('#report-filters').reset(); renderReports(); });
   window.addEventListener('storage', (e) => { if (e.key === KEY) { state = load(); ui.timerSig = ''; render(); } });
   document.addEventListener('visibilitychange', tick);
+  /* ---------- assistente (chat): só interpreta; cálculos e gravação passam pelos módulos ---------- */
+  let chat = null;
+  function toggleChat() {
+    const dr = $('#chat-drawer'), open = dr.hidden;
+    dr.hidden = !open; document.body.classList.toggle('chat-open', open);
+    if (open && !chat && window.Chat) {
+      chat = window.Chat.mount(dr, {
+        getState: () => state,
+        setState: (ns) => { state = K.normalizeState(ns); save(); render(); },
+        now: () => Date.now(),
+      });
+    }
+  }
+  $('#btn-chat').addEventListener('click', toggleChat);
   bindCalendar();
   render();
   handleAlert();
