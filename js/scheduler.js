@@ -1,6 +1,12 @@
 /* Gerador de cronograma semanal (E08 / requisito 08). Módulo puro e determinístico: não grava nada,
  * só PROPÕE posições. A aplicação no calendário é feita depois, por commands.applyChanges, após confirmação.
- * Depende de core.js (planBlock, datas) e de capacity.js (effectiveWeek, freeIntervals, capacityFor). */
+ * Depende de core.js (planBlock, datas) e de capacity.js (effectiveWeek, freeIntervals, capacityFor).
+ *
+ * Extensões ao contrato (docs/ARQUITETURA-V2.md §4.2), combinadas com o maestro:
+ *  - `request.weekOverrides` aceita o mapa { 'YYYY-MM-DD': override } OU o próprio override da semana ({limitMin, days, unavailable}).
+ *  - cada placement traz `fixed` (true quando o horário foi obrigatório); `warnings` são objetos { code, text }.
+ *  - `unplaced[].item` é um resumo { subject, title, pomodoros, blockIndex, blocks, deadline, priority, fixedDate, fixedStart, itemIndex }.
+ *  - 5º parâmetro opcional `deps` substitui o capacity.js (usado em testes). */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
     let cap = null;
