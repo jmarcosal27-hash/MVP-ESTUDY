@@ -17,7 +17,16 @@
 - Timer Pomodoro de 25 min; recurso renomeado "Focus", com cronômetro (stopwatch) e ruídos brancos. [fonte pública: https://ticktick.com/home; https://blog.ticktick.com/2020/05/06/brand-new-focus-experience-ticktick/]
 - Foco por tarefa. [fonte pública: https://clickup.com/learn/topic/task-management/tools/ticktick/]
 - Mais sons só no Premium. [fonte pública: https://clickup.com/learn/topic/task-management/tools/ticktick/]
-- Pausa longa configurável, tempo extra automático, sessão única, alerta sonoro: [não confirmado]
+- Pausa longa configurável, sessão única, alerta sonoro: [não confirmado]
+
+### Prioridade do testador: tempo extra quando o pomodoro zera
+- Modos: **Pomo** (contagem regressiva, ~25 min, pausa ~5 min) e **Stopwatch** (contagem progressiva, sem limite); troca a qualquer momento sem mudar a tarefa e sem afetar o tempo focado total. [fonte pública: https://blog.ticktick.com/2020/05/06/brand-new-focus-experience-ticktick/]
+- Pausa no Pomo limitada ("no máximo três vezes"); ao pausar, escolhe-se continuar ou encerrar. [fonte pública: https://blog.ticktick.com/2020/05/06/brand-new-focus-experience-ticktick/; https://blog.ticktick.com/2021/01/11/the-pomodoro-technique/]
+- Dá para ajustar a duração com botões de mais/menos na tela de Foco. [fonte pública: resultados de busca de ajuda do TickTick; página de ajuda não carregou]
+- **O que acontece ao zerar o Pomo (contador cresce? pede confirmação? inicia descanso? soma no registro?): [não confirmado].** Nenhuma fonte pública acessada descreve; os dois posts do blog afirmam explicitamente não tratar disso, e as páginas de ajuda vieram truncadas. Não há evidência de tempo extra automático.
+- O que existe de mais próximo: Stopwatch, onde o usuário **escolhe** não ter limite. Isso é diferente do nosso E03 (extra começa sozinho ao zerar o foco, sem confirmação, e é somado ao estudo).
+- Para fechar a dúvida é preciso testar no app (Pomo de 1 min deixado zerar) e anotar tela, som e registro.
+- Design visual (layout, cores, ícones) e capturas: [não confirmado] — sem acesso ao app.
 
 ## 4. Questões, acertos e erros
 - Sem registro de questões/acertos nas fontes. [não confirmado]

@@ -22,6 +22,16 @@
 - Crítica de usuário: planos, simulados, questões e revisões "um pouco defeituosos". [fonte pública: https://mwm.ai/apps/estudei/6740289500]
 - Taxa de acerto e validações: [não confirmado]
 
+## 4b. Prioridade do testador: registro de estudos, relatórios e dados
+O que se sabe publicamente (telas e fluxos passo a passo **não** puderam ser descritos: [não confirmado], exigem uso do app com conta):
+- **Campos do registro de estudo** (conjunto citado na loja): horas, páginas lidas, aulas assistidas; tópicos podem ser cadastrados direto pelo registro (v1.9.8). [fonte pública: App Store]
+- Limitação relatada: não registrar mais de um tópico de uma matéria numa só sessão sem criar dois registros. [fonte pública: https://mwm.ai/apps/estudei/6740289500]
+- **Organização dos dados:** por disciplina e por tópico (edital verticalizado com controle do estudado; mapa de facilidades e dificuldades). [fonte pública: App Store]
+- **Métricas citadas:** constância, progresso por disciplina, questões respondidas em simulados, ranking, conquistas. [fonte pública: App Store; mwm.ai]
+- Filtros de relatório, formatos de gráfico, exportação, campos de questões/acertos no registro: [não confirmado].
+- Referências similares encontradas (não são o Estudei): Gran Gerenciador de Estudos registra método, questões, acertos, páginas, assunto e ponto de parada, com estatística por dia/semana/mês. [fonte pública: https://apps.apple.com/us/app/-/id1535120105]
+- Design visual (layout, cores, ícones) e capturas de tela: [não confirmado] — não obtidas. Sabe-se só que há modo claro e escuro. [fonte pública: App Store]
+
 ## 5. Relatórios e estatísticas
 - Indicadores de constância e progresso por disciplina; registro de horas, páginas lidas e aulas assistidas; mapa de facilidades e dificuldades por tópico. [fonte pública: App Store]
 - Ranking de estudos (1.7.5) e conquistas/medalhas (1.9.0). [fonte pública: App Store]
