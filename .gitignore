@@ -1,0 +1,4 @@
+# segredos locais: nunca versionar a chave da API
+.env
+.env.*
+!.env.example
