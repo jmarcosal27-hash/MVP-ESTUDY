@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudy – Organização dos Estudos</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>📚 Estudy</h1>
+    <nav>
+      <button data-view="calendar" class="tab active">Calendário</button>
+      <button data-view="reports" class="tab">Relatórios</button>
+      <button id="btn-settings" class="tab">⚙ Pomodoro padrão</button>
+    </nav>
+  </header>
+
+  <div id="alert-banner" class="alert-banner" hidden role="alert"></div>
+
+  <main>
+    <section id="view-calendar">
+      <div class="cal-toolbar">
+        <div class="cal-nav">
+          <button id="prev-week" aria-label="Semana anterior">‹</button>
+          <button id="today-week">Hoje</button>
+          <button id="next-week" aria-label="Próxima semana">›</button>
+          <h2 id="week-title"></h2>
+        </div>
+        <button id="new-block" class="primary">+ Novo bloco</button>
+      </div>
+      <div id="week-summary" class="summary"></div>
+      <div class="legend">
+        <span class="chip st-em_dia">Em dia</span><span class="chip st-atrasado">Atrasado</span><span class="chip st-concluido">Concluído</span>
+        <span class="muted">Clique em um horário vazio para criar · arraste um bloco para reagendar</span>
+      </div>
+      <div id="calendar" class="calendar"></div>
+    </section>
+
+    <section id="view-reports" hidden>
+      <form id="report-filters" class="filters">
+        <label>Matéria <select id="f-subject"></select></label>
+        <label>De <input type="date" id="f-from"></label>
+        <label>Até <input type="date" id="f-to"></label>
+        <label>Agrupar por
+          <select id="f-group"><option value="subject">Matéria</option><option value="week">Semana</option></select>
+        </label>
+        <button type="button" id="f-clear">Limpar</button>
+      </form>
+      <div id="report"></div>
+    </section>
+  </main>
+
+  <aside id="timer" class="timer" hidden></aside>
+
+  <dialog id="dlg-block"></dialog>
+  <dialog id="dlg-settings"></dialog>
+
+  <script src="js/core.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
