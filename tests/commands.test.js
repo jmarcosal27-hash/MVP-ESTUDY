@@ -250,3 +250,21 @@ test('undo_last no plan: indica o que seria desfeito (ou avisa que não há)', (
   assert.equal(p.undo, true);
   assert.equal(p.results[0].type, 'undo');
 });
+
+test('chat - contexto enviado ao modelo é enxuto e traz números já calculados', () => {
+  const Chat = require('../js/chat.js');
+  const st = mkState([redes(), blk({ id: 'longe', date: '2027-03-01' })]);
+  const ctx = Chat.buildContext(st, NOW);
+  assert.equal(ctx.agora.date, '2026-10-12');
+  assert.equal(ctx.agora.weekday, 1);
+  assert.deepEqual(ctx.blocos.map((b) => b.id), ['r1'], 'só a janela relevante');
+  assert.equal(ctx.blocos[0].end, '15:50');
+  assert.equal(ctx.capacidadeSemanaAtual.plannedNetMin, 100);
+  assert.ok(!JSON.stringify(ctx).includes('sessions'), 'sem sessões/segmentos');
+});
+test('chat - relatório só descreve o que foi aplicado e o que falhou', () => {
+  const Chat = require('../js/chat.js');
+  const t = Chat.reportText({ applied: [{ summary: 'Mover A' }], failed: [{ change: { summary: 'Criar B' }, reason: 'ocupado' }] });
+  assert.match(t, /Feito[\s\S]*Mover A[\s\S]*Não foi possível aplicar[\s\S]*Criar B — ocupado/);
+  assert.match(Chat.reportText({ applied: [], failed: [{ change: { summary: 'X' }, reason: 'r' }] }), /^Nada foi alterado/);
+});

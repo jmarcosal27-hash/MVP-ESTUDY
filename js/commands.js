@@ -152,7 +152,8 @@
       if (clash.length) {
         const text = `${fmtWhen(after.date, after.start)} está ocupado por ${clash.map((b) => `"${b.title}"`).join(', ')}.`;
         ctx.conflicts.push({ blockId: block.id, with: clash.map((b) => b.id), text });
-        const slots = slotsFor(ctx, after, { prefDate: after.date, prefStart: after.start, ignoreId: block.id, afterMs: ctx.nowMs });
+        const slots = slotsFor(ctx, after, { prefDate: after.date, prefStart: after.start, ignoreId: block.id, afterMs: ctx.nowMs, max: 4 })
+          .filter((s) => !(s.date === block.date && s.start === block.start)).slice(0, 3); // não sugere onde o bloco já está
         const alts = slots.map((s) => ({ text: `Mover para ${fmtWhen(s.date, s.start)}`,
           commands: [{ type: 'move_block', ref: { id: block.id }, to: { date: s.date, start: s.start } }] }));
         ctx.alternatives.push(...alts);
