@@ -123,3 +123,97 @@ Gráficos de evolução · exportar CSV · duplicar/recorrência de bloco · arr
 | Navegador bloqueia áudio sem interação prévia | Áudio é liberado no primeiro clique; banner visual e notificação sempre disparam |
 | Dados locais perdidos ao limpar o navegador | Próximo incremento: exportar/importar e depois conta com sincronização |
 | Abas duplicadas alterando a mesma sessão | Evento `storage` sincroniza abas; sessão única por vez |
+
+---
+
+# Incremento 2 — Chat, cronograma e capacidade semanal (E07–E12)
+
+*Origem: requisitos incrementais do usuário (sócio testador). Dependem do MVP atual (E01–E06).*
+
+## 9. Princípio de arquitetura (regra geral do requisito 12)
+**O chat interpreta e explica; os cálculos são determinísticos.** O modelo de linguagem só converte a mensagem em *comandos estruturados*
+(criar, editar, mover, consultar, propor cronograma). Quem calcula tempo, conflitos, capacidade e desempenho é o `core.js`,
+sobre os mesmos registros usados pelo calendário. Assim chat e calendário nunca divergem, nada é duplicado
+e toda alteração passa por uma única porta (`applyChanges`), que também grava o histórico para **desfazer**.
+
+Fluxo: mensagem → comandos (JSON) → validação/ambiguidade → *proposta* (diff) → confirmação → `applyChanges` → salvar → só então anunciar o resultado.
+Pedido direto e inequívoco executa na hora; ambíguo ou com vários blocos pede escolha/confirmação antes.
+
+## 10. Épicos e histórias
+
+### E09 — Limite semanal e capacidade (Must, Sprint 5)
+| ID | História | Critérios de aceite principais |
+|---|---|---|
+| US-09.1 | Definir limite | Horas líquidas de estudo; padrão salvo + exceção por semana; **não é meta de preenchimento** |
+| US-09.2 | Indicadores no planejamento | Limite, estudo líquido planejado, **saldo = limite − planejado**, excesso quando houver |
+| US-09.3 | Carga × agenda | Carga = só estudo; agenda = estudo + pausas. 3×50 min + 2×10 min ⇒ **2h30 de carga, 2h50 de agenda**. Bloco só cabe se couber na capacidade **e** na agenda |
+| US-09.4 | Ao atingir o limite | Aviso; mostra o excesso **antes** de adicionar; oferece reduzir/substituir/transferir; ultrapassar só com decisão explícita; **nunca altera o limite sozinho** |
+| US-09.5 | Saldo sem horário | Avisa quando há saldo de estudo mas faltam horários livres |
+
+### E10 — Capacidade durante a semana (Must, Sprint 5)
+| ID | História | Critérios de aceite principais |
+|---|---|---|
+| US-10.1 | Indicadores | Realizado (foco + extra), restante previsto, **projeção = realizado + restante**, **margem = limite − projeção** (negativa ⇒ "excesso projetado"). Ex.: 40h, 12h feitas, 20h previstas ⇒ 32h, margem 8h |
+| US-10.2 | Contabilização | Bloco concluído não soma o planejado de novo; horas estudadas não são "liberadas"; extra entra uma única vez; pausas e interrupções fora |
+| US-10.3 | Restante ajustável | Estimativa restante editável em bloco parcial; consumir o previsto **não** conclui o conteúdo |
+| US-10.4 | Transferir pendência | Na semana de destino conta só o **restante**; o tempo já estudado permanece na semana de origem |
+| US-10.5 | Alerta de reorganização | Sinaliza projeção acima do limite ou que não cabe nos horários restantes |
+
+### E08 — Cronograma semanal gerado (Must, Sprint 6)
+| ID | História | Critérios de aceite principais |
+|---|---|---|
+| US-08.1 | Disponibilidade reutilizável | Dias, faixas de horário, indisponibilidades, limite semanal e pomodoro padrão; salvos; **exceção por semana sem alterar a rotina padrão** |
+| US-08.2 | Entrada dos blocos | Matéria/assunto, qtd. de blocos, pomodoros por bloco, material, prazo/prioridade/horário obrigatório |
+| US-08.3 | Distribuição | Respeita blocos e revisões existentes, prazos e prioridades; foco + pausas; **sem sobreposição; sem estourar o limite em silêncio** |
+| US-08.4 | O que não coube | Lista os blocos que não couberam **com o motivo**; nunca omite nem encurta atividade sem avisar |
+| US-08.5 | Revisar e confirmar | Proposta editável (ajustes por chat ou manual); **só grava no calendário após confirmação** |
+
+### E07 — Chat integrado ao calendário (Must, Sprint 7)
+| ID | História | Critérios de aceite principais |
+|---|---|---|
+| US-07.1 | Criar/editar/consultar/reagendar | Interpreta o pedido, preenche os campos, aceita **vários blocos numa mensagem**, pergunta **só o que falta** |
+| US-07.2 | Contexto | Usa blocos, resultados e configurações existentes |
+| US-07.3 | Mover com verificação | "Mova Redes de quarta 14h para quinta 9h": identifica o bloco, checa o destino, move sem conflito; se ocupado, **apresenta opções** |
+| US-07.4 | Ambiguidade | Bloco ou alteração ambíguos ⇒ pergunta **antes** de modificar |
+| US-07.5 | Integração | Bloco do chat aparece no calendário; mudança no calendário é vista pelo chat; tempos/resultados idênticos; **sem duplicar** |
+| US-07.6 | Relato | Informa o que foi alterado e as pendências |
+
+### E12 — Ajustes do cronograma pelo chat (Should→Must, Sprint 7)
+| ID | História | Critérios de aceite principais |
+|---|---|---|
+| US-12.1 | Pedidos de reorganização | "Perdi a manhã", "tenho 1h livre amanhã, o que cabe?", "preciso de mais 1 pomodoro", "adicione revisão na semana que vem", "mostre o que tenho e o tempo disponível" |
+| US-12.2 | Regras da proposta | Considera horários restantes e capacidade; preserva concluídos e resultados; respeita fixos, revisões e prazos; **não duplica revisões**; mostra o que move e o que fica, e o efeito na carga/horários; pergunta a escolha quando não há prioridade |
+| US-12.3 | Vários blocos | Proposta antes de aplicar; pedido direto e inequívoco executa e informa |
+| US-12.4 | Confiabilidade | **Desfazer** o último conjunto do chat; não anuncia antes de salvar; informa o que foi e o que não foi aplicado |
+
+### E11 — Relatório semanal com diagnóstico (Should, Sprint 8)
+| ID | História | Critérios de aceite principais |
+|---|---|---|
+| US-11.1 | Geração | Automática no dia/hora de fechamento configurados; disponível na plataforma **e no chat**; atualizável se registros forem corrigidos |
+| US-11.2 | Execução | Planejados/concluídos/atrasados/parciais/reagendados; planejado × estudado; extra; questões, acertos, erros, taxa. **Guarda a semana original** para o reagendamento não esconder o que não foi feito |
+| US-11.3 | Forças e fraquezas | Melhor/pior desempenho por matéria e assunto **com o nº de questões que sustenta**; dificuldades registradas; desvio recorrente estimado × realizado; **avisa quando há poucos dados** |
+| US-11.4 | Regras de análise | Sem questões ≠ 0%; mais tempo ≠ dificuldade; tempo cumprido ≠ concluído ≠ aprendido; taxa = Σacertos ÷ Σquestões com resultado; justificativa ligada aos registros |
+| US-11.5 | Próxima semana | Blocos/revisões já programados, capacidade comprometida, sugestões (revisão, continuação, reagendamento) com razão e impacto, e o que não cabe. **É só proposta; não altera o calendário** |
+
+## 11. Sprints do incremento 2
+| Sprint | Meta | Conteúdo |
+|---|---|---|
+| 5 — *Capacidade* | Semana com limite e projeção (lógica pura + telas) | E09 + E10; novo modelo de dados (limite, exceção semanal, restante, semana original) |
+| 6 — *Distribuir* | Motor de cronograma determinístico | E08 (sem chat: formulário + revisão de proposta) |
+| 7 — *Conversar* | Chat sobre o motor | E07 + E12; camada `applyChanges` com histórico/desfazer |
+| 8 — *Diagnosticar* | Relatório semanal e próxima semana | E11 |
+
+Racional da ordem: o chat só é confiável sobre cálculos já testados; por isso capacidade e distribuição vêm antes e funcionam **sem** chat.
+
+## 12. Decisões em aberto (precisam do usuário)
+1. **Modelo de linguagem do chat:** exige chamada a uma API (chave, custo, internet) e, portanto, um pequeno backend ou proxy; o `localStorage` puro não basta. Qual provedor/chave usar?
+2. **Dados no navegador × servidor:** relatórios automáticos "no dia e horário de fechamento" com o app fechado exigem servidor; no MVP local, gerar ao abrir o app após o fechamento.
+3. **Revisões:** o requisito cita "revisões já agendadas". Revisão será um tipo de bloco (com vínculo ao bloco de origem) ou um recurso à parte?
+4. **Prioridade:** "prioridade" será alta/média/baixa ou ordem numérica?
+5. **Início da semana e fuso:** segunda a domingo, fuso local (hoje assumido).
+
+## 13. Análise de concorrentes (pré-requisito, antes de iniciar o Incremento 2)
+Alvos: **Estudei, Rotinizze, TickTick, Focus Keeper, Notion Calendar, Todoist e Microsoft To Do.**
+Para cada um, registrar em `docs/concorrentes/<nome>.md`: funcionalidades (calendário, blocos, pomodoro/tempo extra, questões e acertos,
+relatórios, metas/limite, revisões, chat/IA, offline, preço) e design (densidade, cor de status, navegação, onboarding, mobile, tema escuro,
+esforço para criar um bloco). Consolidar em matriz comparativa e extrair *o que adotar / evitar / diferenciar*.
