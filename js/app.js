@@ -2,6 +2,7 @@
 (() => {
   'use strict';
   const C = window.Core;
+  const K = window.Capacity;
   const KEY = 'estudy.mvp.v1';
   const HPX = 52; // altura de uma hora no calendário (deve coincidir com --hour no CSS)
   const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -11,12 +12,12 @@
   const dur = C.fmtDur;
 
   /* ---------- estado e persistência ---------- */
-  const fresh = () => ({ settings: { config: { ...C.DEFAULT_CONFIG } }, blocks: [], session: null });
+  const fresh = () => K.normalizeState({ settings: { config: { ...C.DEFAULT_CONFIG } }, blocks: [], session: null });
   function load() {
     try {
       const r = JSON.parse(localStorage.getItem(KEY));
       if (r && Array.isArray(r.blocks)) {
-        return { settings: { config: { ...C.DEFAULT_CONFIG, ...(r.settings && r.settings.config) } }, blocks: r.blocks, session: r.session || null };
+        return K.normalizeState(r);
       }
     } catch (e) { /* storage indisponível ou corrompido */ }
     return fresh();
@@ -65,7 +66,70 @@
   }
 
   /* ---------- calendário ---------- */
+
+  /* ---------- disponibilidade: conversão texto <-> dados ---------- */
+  const WD = ['', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+  const fmtRanges = (arr) => (arr || []).map((r) => `${r.from}-${r.to}`).join(', ');
+  const isHM = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
+  function parseRanges(text, label) {
+    const out = [], t = text.trim();
+    if (!t) return { ranges: out };
+    for (const part of t.split(',')) {
+      const m = part.trim().match(/^(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/);
+      if (!m) return { error: `${label}: use o formato 08:00-12:00, 14:00-18:00.` };
+      const from = C.fromMin(C.toMin(m[1])), to = C.fromMin(C.toMin(m[2]));
+      if (!isHM(from) || !isHM(to) || C.toMin(from) >= C.toMin(to)) return { error: `${label}: faixa inválida "${part.trim()}" (o início deve ser antes do fim).` };
+      out.push({ from, to });
+    }
+    out.sort((a, b) => C.toMin(a.from) - C.toMin(b.from));
+    for (let i = 1; i < out.length; i++) if (C.toMin(out[i].from) < C.toMin(out[i - 1].to)) return { error: `${label}: faixas sobrepostas.` };
+    return { ranges: out };
+  }
+  const fmtUnavail = (list) => (list || []).map((u) => `${u.day || u.date} ${u.from}-${u.to}${u.label ? ' ' + u.label : ''}`).join('\n');
+  function parseUnavail(text) {
+    const out = [];
+    for (const line of text.split('\n').map((l) => l.trim()).filter(Boolean)) {
+      const m = line.match(/^(\d{4}-\d{2}-\d{2}|[1-7])\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*(.*)$/);
+      if (!m) return { error: `Indisponível "${line}": use "3 12:00-14:00 Almoço" (dia 1=seg…7=dom) ou "2026-10-15 09:00-10:00 Consulta".` };
+      const from = C.fromMin(C.toMin(m[2])), to = C.fromMin(C.toMin(m[3]));
+      if (C.toMin(from) >= C.toMin(to)) return { error: `Indisponível "${line}": início deve ser antes do fim.` };
+      const u = /^\d{4}/.test(m[1]) ? { date: m[1] } : { day: Number(m[1]) };
+      out.push({ ...u, from, to, label: m[4].trim() });
+    }
+    return { list: out };
+  }
+  const parseCountLocal = (raw) => C.parseCount(raw);
+  const hoursToMin = (v) => { const t = String(v).trim().replace(',', '.'); if (t === '') return { value: null }; const n = Number(t); return Number.isFinite(n) && n >= 0 ? { value: Math.round(n * 60) } : { error: true }; };
+  const minToHours = (m) => (m === null || m === undefined ? '' : String(Math.round((m / 60) * 100) / 100).replace('.', ','));
+
   function realizedFor(b) { return C.blockRealized(b, state.session, Date.now()); }
+
+
+  const WARN = {
+    LIMIT_REACHED: 'A carga planejada alcançou o limite semanal.',
+    EXCESS: 'A carga planejada ULTRAPASSA o limite semanal.',
+    PROJECTION_OVER_LIMIT: 'A projeção da semana ultrapassa o limite: reorganize ou transfira atividades.',
+    BALANCE_WITHOUT_SLOTS: 'Há saldo de estudo, mas faltam horários livres para usá-lo.',
+    PROJECTION_NO_SLOTS: 'Há blocos atrasados sem horário livre suficiente para o que falta estudar.',
+  };
+  function renderCapacity(c, monday) {
+    const m = (x) => dur(x * C.MIN);
+    const lim = c.limitMin === null;
+    const ov = state.weekOverrides[monday] && state.weekOverrides[monday].limitMin !== undefined;
+    const cards = [
+      [`Limite semanal${ov ? ' (exceção da semana)' : ''}`, lim ? 'sem limite' : m(c.limitMin)],
+      ['Carga planejada (estudo líquido)', m(c.plannedNetMin)],
+      [c.excessMin > 0 ? 'Excesso de planejamento' : 'Saldo para planejar', lim ? '—' : (c.excessMin > 0 ? m(c.excessMin) : m(c.balanceMin))],
+      ['Estudado na semana', m(Math.round(c.realizedMin))],
+      ['Restante previsto', m(c.remainingMin)],
+      ['Projeção da semana', m(Math.round(c.projectionMin))],
+      [c.projectedExcessMin > 0 ? 'Excesso projetado' : 'Margem disponível', lim ? '—' : (c.projectedExcessMin > 0 ? m(Math.round(c.projectedExcessMin)) : m(Math.round(c.marginMin)))],
+      ['Livre na agenda (daqui p/ frente)', m(c.freeAgendaMin)],
+    ];
+    const bad = new Set(['Excesso de planejamento', 'Excesso projetado']);
+    $('#capacity').innerHTML = cards.map(([l, v]) => `<div class="stat${bad.has(l) ? ' bad' : ''}"><span class="muted">${l}</span><b>${v}</b></div>`).join('') +
+      (c.warnings.length ? `<div class="cap-warn">${c.warnings.map((w) => `⚠ ${esc(WARN[w])}`).join('<br>')}</div>` : '');
+  }
 
   function renderCalendar() {
     const now = new Date(), nowMs = now.getTime();
@@ -76,11 +140,18 @@
     const conflicts = C.findConflicts(state.blocks, state.session, nowMs);
     $('#week-title').textContent = `${days[0].toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} – ${days[6].toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
-    const sum = (list) => list.reduce((a, b) => {
-      const sp = C.blockSpan(b), r = realizedFor(b);
-      a.pStudy += sp.studyMin * C.MIN; a.pRest += sp.restMin * C.MIN; a.real = C.addTotals(a.real, r); return a;
-    }, { pStudy: 0, pRest: 0, real: C.zeroTotals() });
-    const week = sum(wb);
+    // Realizado atribuído ao dia em que a sessão INICIOU (mantém o estudo na semana em que ocorreu, mesmo se o bloco for transferido).
+    const realByDate = {};
+    const addReal = (ms, t) => { const d = C.isoDate(new Date(ms)); realByDate[d] = C.addTotals(realByDate[d] || C.zeroTotals(), t); };
+    for (const b of state.blocks) for (const x of b.sessions) addReal(x.startedAt, x.totals);
+    if (state.session) addReal(state.session.startedAt, C.liveTotals(state.session, nowMs));
+    const sum = (list, dates) => {
+      const a = list.reduce((acc, b) => { const sp = C.blockSpan(b); acc.pStudy += sp.studyMin * C.MIN; acc.pRest += sp.restMin * C.MIN; return acc; }, { pStudy: 0, pRest: 0 });
+      a.real = dates.reduce((t, d) => C.addTotals(t, realByDate[d] || C.zeroTotals()), C.zeroTotals());
+      return a;
+    };
+    const week = sum(wb, iso);
+    renderCapacity(K.capacityFor(state, iso[0], nowMs), iso[0]);
     $('#week-summary').innerHTML = [
       ['Planejado (estudo)', dur(week.pStudy)], ['Planejado (descanso)', dur(week.pRest)],
       ['Estudado (foco + extra)', dur(week.real.studyMs)], ['… dos quais extra', dur(week.real.extraMs)],
@@ -89,7 +160,7 @@
 
     let html = '<div class="cal-grid"><div class="cal-head"></div>';
     days.forEach((d, i) => {
-      const t = sum(wb.filter((b) => b.date === iso[i]));
+      const t = sum(wb.filter((b) => b.date === iso[i]), [iso[i]]);
       html += `<div class="cal-head${iso[i] === todayIso ? ' today' : ''}"><div class="dname">${DAYS[i]} ${d.getDate()}/${d.getMonth() + 1}${iso[i] === todayIso ? ' · hoje' : ''}</div>
         <div class="totals">Plan.: ${dur(t.pStudy)} + ${dur(t.pRest)} desc.<br>Estudado: ${dur(t.real.studyMs)} · desc. ${dur(t.real.restMs)}</div></div>`;
     });
@@ -167,11 +238,12 @@
     }).join('') + '</ul>';
   }
 
-  function openBlockDialog({ id, date, start }) {
+  function openBlockDialog({ id, date, start, prefill }) {
     const dlg = $('#dlg-block');
     const b = id ? blockById(id) : null;
     const v = b || { subject: '', title: '', date: date || C.isoDate(new Date()), start: start || '08:00', estimated: 1,
-      config: { ...state.settings.config }, pdf: '', pages: '', studied: '', questions: null, hits: null, notes: '', completed: false, sessions: [] };
+      config: { ...state.settings.config }, pdf: '', pages: '', studied: '', questions: null, hits: null, notes: '', completed: false, sessions: [],
+      kind: 'estudo', reviewOf: null, priority: null, deadline: null, fixed: false, remainingMin: null, ...(prefill || {}) };
     const cfg = v.config;
     const st = b ? C.blockStatus(b, new Date()) : null;
     const active = b && state.session && state.session.blockId === b.id;
@@ -187,6 +259,11 @@
         <label>Pomodoros estimados *<input type="number" name="estimated" min="1" step="1" value="${v.estimated}" required></label>
         <label>PDF (nome ou link)<input name="pdf" value="${esc(v.pdf)}"></label>
         <label>Páginas / trecho previsto<input name="pages" value="${esc(v.pages)}"></label>
+        <label>Tipo<select name="kind"><option value="estudo"${v.kind === 'estudo' ? ' selected' : ''}>Estudo</option><option value="revisao"${v.kind === 'revisao' ? ' selected' : ''}>Revisão</option></select></label>
+        <label>Prioridade<select name="priority"><option value="">—</option>${[['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, l]) => `<option value="${k}"${v.priority === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+        <label>Prazo (opcional)<input type="date" name="deadline" value="${v.deadline || ''}"></label>
+        <label class="check"><input type="checkbox" name="fixed"${v.fixed ? ' checked' : ''}> Horário obrigatório (não mover automaticamente)</label>
+        ${b ? `<label>Restante previsto (min de estudo)<input name="remaining" inputmode="numeric" placeholder="automático" value="${v.remainingMin ?? ''}"></label>` : ''}
       </div>
       <datalist id="subjects">${subjects.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
       <details style="margin-top:8px"><summary>Pomodoro deste bloco (copiado do padrão; ajuste se precisar)</summary><div class="form-grid" style="margin-top:8px">
@@ -196,7 +273,7 @@
         <label>Pausa longa (min)<input type="number" name="longMin" min="1" step="1" value="${cfg.longMin}"></label>
         <div class="wide"><button type="button" id="use-default">Usar configuração padrão atual</button></div>
       </div></details>
-      <div class="preview" id="plan-preview"></div></fieldset>
+      <div class="preview" id="plan-preview"></div><div class="preview" id="cap-preview"></div></fieldset>
       ${b ? `<fieldset><legend>Execução</legend><div class="form-grid">
         <label class="wide">Conteúdo / páginas efetivamente estudados<input name="studied" value="${esc(v.studied)}"></label>
         <label>Questões respondidas<input name="questions" inputmode="numeric" value="${v.questions ?? ''}"></label>
@@ -210,6 +287,7 @@
       <div class="errors" id="block-errors"></div>
       <div class="actions">
         <div class="left">${b ? `<button type="button" id="b-timer" class="primary">${active ? '⏱ Abrir cronômetro' : (b.sessions.length ? '⏱ Retomar estudo (nova sessão)' : '⏱ Iniciar cronômetro')}</button>
+          ${b.kind !== 'revisao' ? '<button type="button" id="b-review">＋ Agendar revisão</button>' : ''}
           <button type="button" id="b-toggle">${b.completed ? '↺ Reabrir bloco' : '✔ Marcar como concluído'}</button>
           <button type="button" id="b-delete" class="danger">Excluir</button>` : ''}</div>
         <button type="button" id="b-cancel">Fechar</button><button type="submit" class="primary">Salvar</button>
@@ -221,7 +299,24 @@
       subject: read('subject').trim(), title: read('title').trim(), date: read('date'), start: read('start'),
       estimated: numVal(read('estimated')), pdf: read('pdf').trim(), pages: read('pages').trim(),
       config: { focusMin: numVal(read('focusMin')), shortMin: numVal(read('shortMin')), longEvery: numVal(read('longEvery')), longMin: numVal(read('longMin')) },
+      kind: read('kind') || 'estudo', priority: read('priority') || null, deadline: read('deadline') || null,
+      fixed: !!(form.elements.fixed && form.elements.fixed.checked),
     });
+    // Efeito do bloco sobre a capacidade da semana de destino (sem salvar nada).
+    const capInfo = (data) => {
+      if (C.validateBlockPlan(data).length) return null;
+      const wk = K.weekKey(data.date), now = Date.now();
+      const draft = b ? { ...b, ...data } : K.normalizeBlock({ id: '__novo', completed: false, sessions: [], ...data });
+      const after = K.capacityFor({ ...state, blocks: b ? state.blocks.map((x) => (x.id === b.id ? draft : x)) : [...state.blocks, draft] }, wk, now);
+      return { wk, after, before: K.capacityFor(state, wk, now) };
+    };
+    const guardCapacity = (data) => {
+      const info = capInfo(data);
+      if (!info || info.after.excessMin <= info.before.excessMin) return true;
+      const opts = b ? [] : K.wouldFit(state, data, info.wk).options.map((o) => '• ' + o.text);
+      if (!opts.length) opts.push('• Reduzir os pomodoros deste bloco.', '• Transferir este ou outro bloco para outra semana.', '• Excluir ou substituir um bloco menos prioritário.');
+      return confirm(`Esta mudança faz a carga da semana ultrapassar o limite em ${dur(info.after.excessMin * C.MIN)}.\n\nAlternativas:\n${opts.join('\n')}\n\nDeseja ultrapassar o limite mesmo assim? (O limite NÃO será alterado.)`);
+    };
     const refresh = () => {
       const p = gatherPlan(), errs = C.validateBlockPlan(p);
       const okCfg = !C.validateConfig(p.config).length && Number.isInteger(p.estimated) && p.estimated >= 1;
@@ -230,6 +325,14 @@
         $('#plan-preview', dlg).innerHTML = `Tempo previsto de estudo: <b>${dur(sp.studyMin * C.MIN)}</b> · descanso: <b>${dur(sp.restMin * C.MIN)}</b> ·
           duração reservada: <b>${dur(sp.totalMin * C.MIN)}</b> · término previsto: <b>${end}</b>`;
       } else $('#plan-preview', dlg).textContent = 'Preencha estimativa e pomodoro com inteiros positivos para ver os cálculos.';
+      const ci = capInfo(p);
+      if (ci) {
+        const a = ci.after, lim = a.limitMin;
+        $('#cap-preview', dlg).innerHTML = lim === null ? 'Semana sem limite definido.' :
+          `Semana de ${C.parseDate(ci.wk).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}: carga <b>${dur(a.plannedNetMin * C.MIN)}</b> de <b>${dur(lim * C.MIN)}</b> → ` +
+          (a.excessMin > 0 ? `<b style="color:var(--red)">excesso de ${dur(a.excessMin * C.MIN)}</b>` : `saldo <b>${dur(a.balanceMin * C.MIN)}</b>`) +
+          (K.freeIntervals(state, p.date, b ? [b.id] : []).some((iv) => iv.startMin <= C.toMin(p.start) && iv.endMin >= C.toMin(p.start) + K.agendaMin({ ...p })) ? '' : '<br>⚠ Este horário está fora da disponibilidade ou ocupado.');
+      } else $('#cap-preview', dlg).textContent = '';
       if (b) {
         const r = C.validateResult(read('questions'), read('hits'));
         const a = C.accuracy({ questions: r.questions, hits: r.hits });
@@ -244,19 +347,21 @@
         const r = C.validateResult(read('questions'), read('hits'));
         errs.push(...r.errors);
         Object.assign(data, { studied: read('studied').trim(), notes: read('notes').trim(), questions: r.questions, hits: r.hits });
+        const rm = parseCountLocal(read('remaining'));
+        if (rm.error) errs.push('Restante previsto: use apenas números inteiros não negativos.'); else data.remainingMin = rm.value;
       }
       $('#block-errors', dlg).innerHTML = errs.map((m) => `<div>${esc(m)}</div>`).join('');
       return errs.length ? null : data;
     };
     const commit = (data) => {
       if (b) Object.assign(b, data);
-      else state.blocks.push({ id: uid(), completed: false, sessions: [], studied: '', questions: null, hits: null, notes: '', ...data });
+      else state.blocks.push(K.normalizeBlock({ id: uid(), completed: false, sessions: [], studied: '', questions: null, hits: null, notes: '', reviewOf: v.reviewOf || null, ...data }));
       save();
     };
     form.addEventListener('input', refresh);
     $('#use-default', dlg).onclick = () => { Object.entries(state.settings.config).forEach(([k, val]) => { form.elements[k].value = val; }); refresh(); };
     $('#b-cancel', dlg).onclick = () => dlg.close();
-    form.addEventListener('submit', (e) => { e.preventDefault(); const d = collect(); if (!d) return; commit(d); dlg.close(); render(); });
+    form.addEventListener('submit', (e) => { e.preventDefault(); const d = collect(); if (!d || !guardCapacity(d)) return; commit(d); dlg.close(); render(); });
     if (b) {
       $('#b-delete', dlg).onclick = () => {
         if (!confirm('Excluir este bloco e todo o seu histórico de sessões?')) return;
@@ -268,8 +373,15 @@
         Object.assign(d, { completed: !b.completed, completedAt: b.completed ? null : Date.now() });
         commit(d); dlg.close(); render();
       };
-      $('#b-timer', dlg).onclick = () => {
+      const rv = $('#b-review', dlg);
+      if (rv) rv.onclick = () => {
         const d = collect(); if (!d) return;
+        commit(d); dlg.close();
+        const next = C.isoDate(C.addDays(C.parseDate(d.date), 7));
+        openBlockDialog({ date: next, start: d.start, prefill: { kind: 'revisao', reviewOf: b.id, subject: d.subject, title: `Revisão: ${d.title}`, estimated: 1, pdf: d.pdf, priority: d.priority } });
+      };
+      $('#b-timer', dlg).onclick = () => {
+        const d = collect(); if (!d || !guardCapacity(d)) return;
         commit(d); startTimer(b.id) && dlg.close(); render();
       };
     }
@@ -349,14 +461,24 @@
 
   /* ---------- configurações ---------- */
   function openSettings() {
-    const dlg = $('#dlg-settings'), c = state.settings.config;
-    dlg.innerHTML = `<form method="dialog" id="set-form" novalidate><h3>Pomodoro padrão</h3>
+    const dlg = $('#dlg-settings'), c = state.settings.config, av = state.settings.availability, cl = state.settings.closing;
+    dlg.innerHTML = `<form method="dialog" id="set-form" novalidate><h3>Configurações</h3>
+      <fieldset><legend>Pomodoro padrão</legend>
       <p class="muted">Vale para novos blocos. Blocos e sessões já criados mantêm a configuração que tinham.</p>
       <div class="form-grid">
         <label>Foco (min)<input type="number" name="focusMin" min="1" step="1" value="${c.focusMin}"></label>
         <label>Pausa curta (min)<input type="number" name="shortMin" min="1" step="1" value="${c.shortMin}"></label>
         <label>Pomodoros até a pausa longa<input type="number" name="longEvery" min="1" step="1" value="${c.longEvery}"></label>
-        <label>Pausa longa (min)<input type="number" name="longMin" min="1" step="1" value="${c.longMin}"></label></div>
+        <label>Pausa longa (min)<input type="number" name="longMin" min="1" step="1" value="${c.longMin}"></label></div></fieldset>
+      <fieldset><legend>Limite semanal e disponibilidade (rotina padrão)</legend>
+      <p class="muted">O limite conta só tempo de <b>estudo</b> (sem pausas). Não é meta de preenchimento. Exceções de uma semana ficam em "Semana" no calendário e não alteram esta rotina.</p>
+      <div class="form-grid"><label>Limite semanal de estudo (horas líquidas; vazio = sem limite)<input name="limitH" inputmode="decimal" value="${minToHours(state.settings.weeklyLimitMin)}"></label>
+        <label>Fechamento do relatório semanal<select name="closeDay">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<option value="${d}"${cl.day === d ? ' selected' : ''}>${WD[d]}</option>`).join('')}</select></label>
+        <label>Horário do fechamento<input type="time" name="closeTime" value="${cl.time}"></label></div>
+      <p class="muted" style="margin-top:10px">Faixas de estudo por dia (ex.: 08:00-12:00, 14:00-18:00). Vazio = dia indisponível.</p>
+      <div class="form-grid">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<label>${WD[d]}<input name="day${d}" placeholder="indisponível" value="${esc(fmtRanges(av.days[d]))}"></label>`).join('')}</div>
+      <label class="field" style="margin-top:10px">Períodos indisponíveis (um por linha: "3 12:00-14:00 Almoço" repete toda quarta; "2026-10-15 09:00-10:00 Consulta" só naquele dia)
+        <textarea name="unavail" rows="3">${esc(fmtUnavail(av.unavailable))}</textarea></label></fieldset>
       <div class="errors" id="set-errors"></div>
       <div class="actions"><div class="left"><button type="button" id="demo">Carregar dados de exemplo</button><button type="button" id="wipe" class="danger">Apagar todos os dados</button></div>
         <button type="button" id="set-cancel">Fechar</button><button type="submit" class="primary">Salvar</button></div></form>`;
@@ -366,12 +488,56 @@
       e.preventDefault();
       const cfg = {}; ['focusMin', 'shortMin', 'longEvery', 'longMin'].forEach((k) => { cfg[k] = numVal(f.elements[k].value); });
       const errs = C.validateConfig(cfg);
+      const lim = hoursToMin(f.elements.limitH.value); if (lim.error) errs.push('Limite semanal: informe horas (ex.: 20 ou 22,5) ou deixe vazio.');
+      const days = {};
+      for (let d = 1; d <= 7; d++) { const r = parseRanges(f.elements['day' + d].value, WD[d]); if (r.error) errs.push(r.error); else if (r.ranges.length) days[d] = r.ranges; }
+      const un = parseUnavail(f.elements.unavail.value); if (un.error) errs.push(un.error);
       $('#set-errors', dlg).innerHTML = errs.map((m) => `<div>${esc(m)}</div>`).join('');
       if (errs.length) return;
-      state.settings.config = cfg; save(); dlg.close();
+      Object.assign(state.settings, { config: cfg, weeklyLimitMin: lim.value, availability: { days, unavailable: un.list }, closing: { day: Number(f.elements.closeDay.value), time: f.elements.closeTime.value || '21:00' } });
+      save(); dlg.close(); render();
     });
     $('#demo', dlg).onclick = () => { loadDemo(); dlg.close(); render(); };
     $('#wipe', dlg).onclick = () => { if (confirm('Apagar blocos, sessões e configurações?')) { state = fresh(); save(); dlg.close(); render(); } };
+    dlg.showModal();
+  }
+
+  /* ---------- exceção de uma semana (não altera a rotina padrão) ---------- */
+  function openWeekDialog() {
+    const dlg = $('#dlg-week'), monday = C.isoDate(ui.weekStart), eff = K.effectiveWeek(state, monday), base = state.settings.availability;
+    const ov = state.weekOverrides[monday] || {};
+    const title = `${ui.weekStart.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} – ${C.addDays(ui.weekStart, 6).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}`;
+    dlg.innerHTML = `<form method="dialog" id="week-form" novalidate><h3>Semana ${title}</h3>
+      <p class="muted">Ajustes só desta semana. A rotina padrão (em Configurações) <b>não</b> muda.</p>
+      <div class="form-grid"><label>Limite desta semana (horas líquidas; vazio = usar o padrão${state.settings.weeklyLimitMin === null ? ': sem limite' : ': ' + minToHours(state.settings.weeklyLimitMin) + 'h'})
+        <input name="limitH" inputmode="decimal" value="${ov.limitMin !== undefined ? minToHours(ov.limitMin) : ''}"></label></div>
+      <p class="muted" style="margin-top:10px">Faixas de estudo por dia nesta semana (vazio = indisponível).</p>
+      <div class="form-grid">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<label>${WD[d]}<input name="day${d}" placeholder="indisponível" value="${esc(fmtRanges(eff.days[d]))}"></label>`).join('')}</div>
+      <label class="field" style="margin-top:10px">Períodos indisponíveis só desta semana (um por linha)<textarea name="unavail" rows="3">${esc(fmtUnavail(ov.unavailable))}</textarea></label>
+      <div class="errors" id="week-errors"></div>
+      <div class="actions"><div class="left"><button type="button" id="week-reset" class="danger">Restaurar padrão desta semana</button></div>
+        <button type="button" id="week-cancel">Fechar</button><button type="submit" class="primary">Salvar</button></div></form>`;
+    const f = $('#week-form', dlg);
+    $('#week-cancel', dlg).onclick = () => dlg.close();
+    $('#week-reset', dlg).onclick = () => { delete state.weekOverrides[monday]; save(); dlg.close(); render(); };
+    f.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const errs = [], o = {};
+      const lim = hoursToMin(f.elements.limitH.value);
+      if (lim.error) errs.push('Limite: informe horas (ex.: 20 ou 22,5) ou deixe vazio.'); else if (lim.value !== null) o.limitMin = lim.value;
+      const days = {};
+      for (let d = 1; d <= 7; d++) {
+        const r = parseRanges(f.elements['day' + d].value, WD[d]);
+        if (r.error) { errs.push(r.error); continue; }
+        if (fmtRanges(r.ranges) !== fmtRanges(base.days[d])) days[d] = r.ranges; // só guarda o que difere do padrão
+      }
+      if (Object.keys(days).length) o.days = days;
+      const un = parseUnavail(f.elements.unavail.value); if (un.error) errs.push(un.error); else if (un.list.length) o.unavailable = un.list;
+      $('#week-errors', dlg).innerHTML = errs.map((m) => `<div>${esc(m)}</div>`).join('');
+      if (errs.length) return;
+      if (Object.keys(o).length) state.weekOverrides[monday] = o; else delete state.weekOverrides[monday];
+      save(); dlg.close(); render();
+    });
     dlg.showModal();
   }
   function loadDemo() {
@@ -388,7 +554,7 @@
       mk(3, '19:00', 'Matemática', 'Razão e proporção', 3, { questions: 10, hits: 4, notes: 'Dificuldade em regra de três composta.' }),
       mk(4, '20:00', 'Direito Constitucional', 'Controle de constitucionalidade', 2),
     );
-    save();
+    state = K.normalizeState(state); save();
   }
 
   /* ---------- relatórios ---------- */
@@ -461,6 +627,7 @@
   $('#next-week').addEventListener('click', () => { ui.weekStart = C.addDays(ui.weekStart, 7); render(); });
   $('#today-week').addEventListener('click', () => { ui.weekStart = C.mondayOf(new Date()); render(); });
   $('#new-block').addEventListener('click', () => openBlockDialog({}));
+  $('#week-config').addEventListener('click', openWeekDialog);
   $('#report-filters').addEventListener('input', renderReports);
   $('#f-clear').addEventListener('click', () => { $('#report-filters').reset(); renderReports(); });
   window.addEventListener('storage', (e) => { if (e.key === KEY) { state = load(); ui.timerSig = ''; render(); } });

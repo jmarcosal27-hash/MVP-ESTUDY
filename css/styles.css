@@ -92,3 +92,8 @@ legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
 .timer .info { font-size: 12px; color: var(--muted); display: grid; gap: 1px; margin-top: 6px; }
 .alert-banner { background: var(--warn); color: #000; padding: 10px 16px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .alert-banner[hidden] { display: none; }
+
+.stat.bad { border-color: var(--red); background: var(--red-bg); }
+.cap-warn { flex-basis: 100%; background: var(--red-bg); color: var(--red); border-radius: 8px; padding: 6px 10px; font-weight: 600; }
+.form-grid label.check { display: flex; gap: 6px; align-items: center; color: var(--text); }
+.form-grid label.check input { width: auto; }

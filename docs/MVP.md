@@ -111,7 +111,7 @@ Gráficos de evolução · exportar CSV · duplicar/recorrência de bloco · arr
 ## 7. Decisões de produto e premissas
 - **Persistência local:** `localStorage` (um navegador, um estudante). Validar valor antes de investir em backend.
 - **Configuração por bloco é uma cópia** da padrão no momento da criação: alterar o padrão não muda blocos existentes.
-- **Realizado é atribuído ao dia do bloco** (não ao dia em que a sessão ocorreu) nos totais do calendário e relatórios.
+- **Realizado é atribuído ao dia em que a sessão INICIOU** (revisado na V2: o estudo permanece na semana em que ocorreu mesmo se o bloco for transferido, requisito 10); relatórios por período continuam agrupando por bloco.
 - **Pausa manual durante foco/extra** conta como *interrupção*; pausar durante o descanso apenas congela o descanso.
 - **Pausa longa:** a cada N pomodoros *concluídos* na sessão (não conta ciclos parciais). Cada sessão inicia uma nova sequência.
 - **Bloco deve caber no dia** (termina até 24:00); precisão de 15 min no arrastar.
