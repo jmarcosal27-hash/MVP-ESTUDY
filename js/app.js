@@ -595,15 +595,81 @@
     $('#report').innerHTML = html;
   }
 
+
+  /* ---------- relatório semanal (requisito 11): só mostra e PROPÕE; não altera o calendário sozinho ---------- */
+  const W = window.WeeklyReport || null;
+  const pct = (r) => (r === null || r === undefined ? '—' : r.toFixed(1).replace('.', ',') + '%');
+  /** Gera (uma vez) o relatório da semana fechada e avisa na aba e no chat. */
+  function autoGenerateReport() {
+    if (!W) return;
+    const wk = W.shouldGenerate(state, Date.now());
+    if (!wk) return;
+    const rep = W.buildWeeklyReport(state, wk, Date.now());
+    if (!rep.execution.planned && !rep.execution.studiedMin) return; // semana sem atividade: não gera relatório vazio
+    state.reports = { ...state.reports, [wk]: rep };
+    const msgs = ((state.chat || {}).messages || []).concat([{ role: 'system', at: Date.now(), text: `📊 O relatório da semana de ${C.parseDate(wk).toLocaleDateString('pt-BR')} está pronto: abra a aba "Relatório semanal" para ver o diagnóstico e as sugestões (nada foi alterado no calendário).` }]);
+    state.chat = { messages: msgs.slice(-100) };
+    save();
+    $('#tab-weekly').textContent = 'Relatório semanal ●';
+  }
+  function applySuggestion(sg) {
+    const plan = window.Commands.plan(state, sg.commands, Date.now());
+    if (plan.status === 'needs_clarification' || !plan.changes.length) {
+      alert('Não consegui aplicar automaticamente:\n' + ((plan.questions || []).map((q) => '• ' + q.text).join('\n') || (plan.warnings || []).map((x) => '• ' + x.text).join('\n') || 'Nenhuma alteração possível.'));
+      return;
+    }
+    if (!confirm(`${sg.text}\n\nMotivo: ${sg.reason}\n\nAlterações que serão feitas:\n${plan.changes.map((c) => '• ' + c.summary).join('\n')}\n\nAplicar no calendário?`)) return;
+    const res = window.Commands.applyChanges(state, plan.changes, { source: 'chat', summary: sg.text, nowMs: Date.now() });
+    if (res.applied.length) { state = K.normalizeState(res.state); save(); render(); }
+    alert(res.applied.length ? `${res.applied.length} alteração(ões) salva(s).${res.failed.length ? '\nNão aplicadas:\n' + res.failed.map((f) => '• ' + f.reason).join('\n') : ''}` : 'Nada foi alterado:\n' + res.failed.map((f) => '• ' + f.reason).join('\n'));
+  }
+  function renderWeekly() {
+    const el = $('#weekly'), sel = $('#w-week');
+    if (!W) { el.textContent = 'Módulo de relatório indisponível.'; return; }
+    const now = Date.now(), cur = K.weekKey(C.isoDate(new Date(now)));
+    const weeks = [...new Set([...state.blocks.map((b) => b.originWeek || K.weekKey(b.date)), ...Object.keys(state.reports), C.isoDate(C.addDays(C.parseDate(cur), -7)), cur])].sort().reverse();
+    const keep = sel.value && weeks.includes(sel.value) ? sel.value : (Object.keys(state.reports).sort().pop() || weeks.find((w) => w < cur) || cur);
+    sel.innerHTML = weeks.map((w) => `<option value="${w}"${w === keep ? ' selected' : ''}>${C.parseDate(w).toLocaleDateString('pt-BR')} – ${C.addDays(C.parseDate(w), 6).toLocaleDateString('pt-BR')}${w === cur ? ' (atual)' : ''}</option>`).join('');
+    const wk = sel.value, r = W.buildWeeklyReport(state, wk, now), ex = r.execution, f = (m) => dur(m * C.MIN);
+    const saved = state.reports[wk];
+    $('#w-meta').textContent = saved ? `Gerado em ${new Date(saved.generatedAt).toLocaleString('pt-BR')} · esta tela recalcula com os registros atuais` : 'Ainda não gerado automaticamente (a semana pode não ter fechado).';
+    const li = (arr, fn) => (arr && arr.length ? `<ul>${arr.map((x) => `<li>${fn(x)}</li>`).join('')}</ul>` : '<p class="muted">Nada a registrar.</p>');
+    const nw = r.nextWeek;
+    el.innerHTML = `<h3>Execução da semana</h3><div class="summary">${[
+      ['Blocos planejados', ex.planned], ['Concluídos', ex.done], ['Atrasados', ex.late], ['Em dia', ex.onTrack], ['Parcialmente realizados', ex.partial],
+      ['Tempo planejado', f(ex.plannedMin)], ['Tempo estudado', f(ex.studiedMin)], ['… tempo extra', f(ex.extraMin)],
+      ['Questões respondidas', `${ex.questions}${ex.questionsWithResult !== ex.questions ? ` (${ex.questionsWithResult} com resultado)` : ''}`], ['Acertos', ex.hits], ['Erros', ex.errors], ['Taxa de acerto', ex.rate === null ? 'Sem questões com resultado' : pct(ex.rate)],
+    ].map(([l, v]) => `<div class="stat"><span class="muted">${l}</span><b>${v}</b></div>`).join('')}</div>
+      ${ex.rescheduledOut.length ? `<p><b>Reagendados para outra semana (continuam contando como não realizados aqui):</b></p>${li(ex.rescheduledOut, (x) => esc(x.text || (x.title ? `${x.subject} — ${x.title}` : JSON.stringify(x))))}` : ''}
+      ${ex.timeMetNotCompleted ? `<p class="muted">${ex.timeMetNotCompleted} bloco(s) cumpriram o tempo previsto, mas não foram concluídos.</p>` : ''}
+      <h3>Forças e fraquezas</h3>
+      <p><b>Pontos fortes</b></p>${li(r.strengths, (x) => esc(x.reason || x.text || x.subject))}
+      <p><b>Pontos de atenção</b></p>${li(r.weaknesses, (x) => esc(x.reason || x.text || x.subject))}
+      ${r.lowData.length ? `<p><b>Poucos dados para concluir</b></p>${li(r.lowData, (x) => esc(x.text))}` : ''}
+      ${r.registeredDifficulties.length ? `<p><b>Dificuldades que você registrou</b></p>${li(r.registeredDifficulties, (x) => `<b>${esc(x.subject)} — ${esc(x.title)}:</b> ${esc(x.text)}`)}` : ''}
+      ${r.estimationBias.length ? `<p><b>Estimado × realizado</b></p>${li(r.estimationBias, (x) => `${esc(x.subject)}: previsto ${f(x.avgPlannedMin)}, realizado ${f(x.avgRealMin)} (${x.n} bloco(s) concluído(s))${x.recurrentOverrun ? ' — estoura com frequência' : ''}`)}` : ''}
+      <details><summary class="muted">Como ler este relatório</summary>${li(r.cautions, esc)}</details>
+      <h3>Preparando a semana de ${C.parseDate(nw.week).toLocaleDateString('pt-BR')}</h3>
+      <p>Já programado: <b>${nw.scheduled.length}</b> bloco(s)/revisão(ões). Capacidade: ${nw.capacity.limitMin === null ? 'sem limite' : `<b>${f(nw.capacity.plannedNetMin)}</b> de ${f(nw.capacity.limitMin)} comprometidos (saldo ${f(nw.capacity.balanceMin)})`}.</p>
+      <p><b>Sugestões</b> <span class="muted">(são propostas; nada muda no calendário até você aplicar)</span></p>
+      ${nw.suggestions.length ? nw.suggestions.map((sg, i) => `<div class="stat" style="margin-bottom:6px"><b>${esc(sg.text)}</b><br><span class="muted">Por quê: ${esc(sg.reason)}</span><br>
+        <span class="muted">Impacto: ${sg.impact && sg.impact.netMin !== undefined ? `+${f(sg.impact.netMin)} de estudo` : ''}${sg.impact && sg.impact.balanceAfterMin !== undefined ? `, saldo da semana após aplicar: ${f(sg.impact.balanceAfterMin)}` : ''}</span><br>
+        <button type="button" data-sg="${i}">Aplicar esta sugestão…</button></div>`).join('') : '<p class="muted">Sem sugestões.</p>'}
+      ${nw.doesNotFit.length ? `<div class="unplaced"><b>Não cabe na semana seguinte:</b><br>${nw.doesNotFit.map((x) => '• ' + esc(x.reason || x.text)).join('<br>')}</div>` : ''}
+      ${nw.note ? `<p class="muted">${esc(nw.note)}</p>` : ''}`;
+    el.querySelectorAll('[data-sg]').forEach((b) => { b.onclick = () => applySuggestion(nw.suggestions[Number(b.dataset.sg)]); });
+  }
+
   /* ---------- orquestração ---------- */
   function setView(v) {
     ui.view = v;
-    $('#view-calendar').hidden = v !== 'calendar'; $('#view-reports').hidden = v !== 'reports';
+    $('#view-calendar').hidden = v !== 'calendar'; $('#view-reports').hidden = v !== 'reports'; $('#view-weekly').hidden = v !== 'weekly';
+    if (v === 'weekly') $('#tab-weekly').textContent = 'Relatório semanal';
     document.querySelectorAll('[data-view]').forEach((t) => t.classList.toggle('active', t.dataset.view === v));
     render();
   }
   function render() {
-    if (ui.view === 'calendar') renderCalendar(); else renderReports();
+    if (ui.view === 'calendar') renderCalendar(); else if (ui.view === 'weekly') renderWeekly(); else renderReports();
     renderTimer();
     document.body.classList.toggle('has-timer', !!state.session);
     if (chat) chat.refresh();
@@ -632,6 +698,8 @@
   $('#week-config').addEventListener('click', openWeekDialog);
   $('#gen-schedule').addEventListener('click', openScheduleDialog);
   $('#report-filters').addEventListener('input', renderReports);
+  $('#w-week').addEventListener('change', renderWeekly);
+  $('#w-refresh').addEventListener('click', () => { const wk = $('#w-week').value; if (W) { state.reports = { ...state.reports, [wk]: W.buildWeeklyReport(state, wk, Date.now()) }; save(); } renderWeekly(); });
   $('#f-clear').addEventListener('click', () => { $('#report-filters').reset(); renderReports(); });
   window.addEventListener('storage', (e) => { if (e.key === KEY) { state = load(); ui.timerSig = ''; render(); } });
   document.addEventListener('visibilitychange', tick);
@@ -730,6 +798,7 @@
     }
   }
   $('#btn-chat').addEventListener('click', toggleChat);
+  autoGenerateReport();
   bindCalendar();
   render();
   handleAlert();

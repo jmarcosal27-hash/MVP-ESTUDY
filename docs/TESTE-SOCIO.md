@@ -1,4 +1,4 @@
-# Roteiro de teste do Estudy — para o sócio testador
+# Roteiro de teste do Estudy (MVP final, requisitos 01–12) — para o sócio testador
 
 **Objetivo:** usar o app como um estudante de verdade e dizer o que atrapalha, o que falta e o que sobra.
 Cada anotação sua vira item do backlog. Não precisa saber programar: siga os passos e marque ✅ / ❌.
@@ -10,7 +10,7 @@ Cada anotação sua vira item do backlog. Não precisa saber programar: siga os 
 4. Para testar rápido, em **⚙ Pomodoro padrão** use **Foco 1 min, Pausa curta 1 min, Pausa longa 2 min, longa a cada 2**. Volte para valores reais na Parte 4.
 5. Tenha à mão um caderno ou o Bloco de Notas para anotar. Ao final, preencha a tabela da seção 6.
 
-> Limites conhecidos (não precisa reportar): arrastar bloco só funciona com mouse (no celular use Editar); ainda **não existe chat**, geração automática de cronograma nem limite semanal; sem login.
+> Limites conhecidos (não precisa reportar): arrastar bloco só funciona com mouse (no celular use Editar); sem login; os dados ficam só neste navegador; o **chat** só funciona abrindo pelo `iniciar.bat` (servidor local com a chave da Anthropic). Sem isso o resto do app funciona normalmente.
 
 ---
 
@@ -79,7 +79,61 @@ Use o app **no lugar** da sua agenda de estudos, com valores reais de pomodoro (
 Ao fim de cada dia, anote em 1 linha: *o que você tentou fazer e não conseguiu / achou chato*.
 Teste também: fechar o navegador no meio de uma sessão e reabrir; estudar 2 sessões no mesmo bloco; estudar além do horário do bloco seguinte (deve aparecer ⚠).
 
-## 6. Formulário de feedback
+## Parte 6 — Limite semanal e capacidade
+Use ⚙ **Pomodoro padrão** para definir o limite (ex.: 20 h) e as faixas de estudo por dia (ex.: 08:00-12:00, 14:00-22:00; domingo vazio). Peça ao dono do projeto a pasta de teste e abra pelo `iniciar.bat`, ou use o `estudy.html`.
+| # | Faça | Esperado | ✅/❌ |
+|---|---|---|---|
+| 6.1 | Defina limite de **4 h** e crie um bloco de **3 pomodoros de 50 min** (pausa 10) | Painel no topo: carga **2h 30min** (só estudo), saldo **1h 30min**; o bloco ocupa **2h 50min** na agenda |  |
+| 6.2 | Crie um 2º bloco igual na mesma semana | Antes de salvar, avisa que ultrapassa o limite em **1h** e mostra alternativas (reduzir, semana seguinte, substituir). **Só grava se você aceitar**; o limite não muda sozinho |  |
+| 6.3 | Aceite ultrapassar | Cartão "Excesso de planejamento" e "Excesso projetado" em vermelho |  |
+| 6.4 | Botão **⚙ Semana** → limite 10 h só para esta semana | Esta semana usa 10 h; a **próxima semana continua com o padrão**; Configurações não mudou |  |
+| 6.5 | Estude (cronômetro) parte de um bloco e veja o painel | "Estudado na semana" sobe (inclui tempo extra, uma vez); "Restante previsto" diminui; **Projeção = estudado + restante**; **Margem = limite − projeção** |  |
+| 6.6 | Edite o bloco e ajuste "Restante previsto (min)" | A projeção muda de acordo; concluir o bloco zera o restante |  |
+| 6.7 | Marque como "Indisponível" um horário (ex.: `3 12:00-14:00 Almoço`) e tente criar bloco nele | Aviso de que está fora da disponibilidade |  |
+| 6.8 | No bloco, clique **＋ Agendar revisão** | Abre um bloco do tipo Revisão ligado ao original, uma semana depois |  |
+
+## Parte 7 — Gerar cronograma
+Botão **🗓 Gerar cronograma** (com a semana desejada aberta).
+| # | Faça | Esperado | ✅/❌ |
+|---|---|---|---|
+| 7.1 | Item 1: "Constitucional", 2 blocos de 3 pomodoros. Item 2: "Redes", 3 blocos de 2 pomodoros. Gere | Proposta de **5 blocos**, sem sobreposição, dentro da disponibilidade, espalhando as matérias; cada linha explica **por quê** |  |
+| 7.2 | Mude o dia/hora de uma linha e confirme | Grava com os seus ajustes; reverifica conflitos |  |
+| 7.3 | Antes de confirmar, **nada** aparece no calendário | Correto: só grava ao clicar em "Confirmar e gravar" |  |
+| 7.4 | Peça mais do que cabe no limite (ex.: 30 blocos) | Os que **não couberam** aparecem com o motivo (limite, sem horário, prazo…); nada some nem é encurtado em silêncio |  |
+| 7.5 | Informe prazo curto ou um dia/hora obrigatório (🔒) | Prazo apertado tem prioridade; o horário obrigatório é respeitado |  |
+| 7.6 | Já tendo blocos/revisões na semana, gere de novo | Os existentes **não são movidos nem duplicados** |  |
+
+## Parte 8 — Chat (Assistente)
+Exige abrir pelo `iniciar.bat`. Botão **💬 Assistente**.
+| # | Escreva | Esperado | ✅/❌ |
+|---|---|---|---|
+| 8.1 | "Crie um bloco de Redes amanhã às 9h com 3 pomodoros" | Pergunta só o que faltar; mostra proposta e **só altera após confirmar** (pedido direto e sem conflito pode executar na hora e informar) |  |
+| 8.2 | "Mova o bloco de Redes de quarta às 14h para quinta às 9h" | Move se estiver livre; se **ocupado**, oferece horários livres; se houver 2 blocos "Redes", **pergunta qual** antes de mexer |  |
+| 8.3 | Vários blocos numa mensagem: "Crie Português seg 8h 2 pomodoros e Direito ter 10h 3 pomodoros" | Cria os dois, sem duplicar, e informa o que foi feito |  |
+| 8.4 | "Tenho 1 hora livre amanhã, o que cabe?" | Resposta baseada nos horários reais (confira com o calendário) |  |
+| 8.5 | "Perdi a manhã de hoje, reorganize os pendentes" | Mostra **quais mudam e quais ficam** e o efeito na carga; só aplica depois de confirmar |  |
+| 8.6 | "Preciso de mais um pomodoro neste assunto" / "Adicione uma revisão na próxima semana" | Faz o ajuste (ou propõe), sem duplicar revisão existente |  |
+| 8.7 | "Mostre o que tenho programado e quanto tempo ainda tenho" | Números **iguais** aos do painel de capacidade |  |
+| 8.8 | Mude um bloco **no calendário** e pergunte sobre ele no chat | O chat enxerga a mudança |  |
+| 8.9 | Clique em **Desfazer última alteração do chat** | Volta ao estado anterior; informa o que foi desfeito |  |
+| 8.10 | Peça algo que estoure o limite | Mostra o excesso e alternativas antes de aplicar |  |
+
+## Parte 9 — Relatório semanal
+Aba **Relatório semanal**. O relatório da semana fechada é gerado ao abrir o app depois do fechamento (padrão: domingo 21:00; mude em Configurações). Para testar sem esperar, escolha a semana no seletor e clique **Atualizar relatório**.
+| # | Faça | Esperado | ✅/❌ |
+|---|---|---|---|
+| 9.1 | Abra um relatório de semana com blocos e resultados | Planejados/concluídos/atrasados/parciais, planejado × estudado, **extra separado**, questões, acertos, erros, taxa |  |
+| 9.2 | Matéria com poucas questões | Aparece em **"Poucos dados"** (não vira força nem fraqueza) |  |
+| 9.3 | Matéria sem questões | **Nunca** aparece como 0%; fica "sem questões com resultado" |  |
+| 9.4 | Matéria com mais tempo, mas sem erros | O relatório **não** conclui "dificuldade" só por tempo |  |
+| 9.5 | Reagende um bloco para a semana seguinte | O relatório da semana original **ainda mostra** que ele não foi feito |  |
+| 9.6 | Corrija um resultado e clique em Atualizar | Os números se recalculam |  |
+| 9.7 | "Preparando a semana seguinte" | Mostra o que já está programado, a capacidade comprometida e sugestões **com motivo e impacto**; o que não cabe é listado |  |
+| 9.8 | Clique em "Aplicar esta sugestão…" | Pede confirmação mostrando as mudanças; **sem confirmar, nada muda** |  |
+| 9.9 | O chat avisou que o relatório está pronto? | Sim, mensagem no chat (se o assistente estiver aberto) |  |
+
+
+## 11. Formulário de feedback
 Preencha uma linha por item. Gravidade: **A** = impede de usar · **B** = atrapalha · **C** = incômodo/ideia.
 | # | Tela/Parte | O que aconteceu ou o que faltou | Esperava | Gravidade (A/B/C) | Frequência (sempre/às vezes) |
 |---|---|---|---|---|---|
@@ -87,11 +141,11 @@ Preencha uma linha por item. Gravidade: **A** = impede de usar · **B** = atrapa
 | 2 |  |  |  |  |  |
 | 3 |  |  |  |  |  |
 
-## 7. Perguntas finais (responda em 1–2 frases)
+## 12. Perguntas finais (responda em 1–2 frases)
 1. Você trocaria sua agenda atual por este app? O que falta para isso?
 2. Qual recurso você mais usou? Qual nunca usou?
 3. O que mais te irritou?
-4. Dos itens que **ainda não existem** (chat para criar/alterar blocos, cronograma gerado, limite semanal de horas, relatório semanal com diagnóstico), qual você mais quer **primeiro**?
+4. Dos recursos novos (chat, cronograma gerado, limite/capacidade semanal, relatório semanal), qual **mais ajudou** e qual **mais atrapalhou**?
 5. Comparando com Estudei / Focus Keeper / TickTick: o que eles fazem melhor que este app?
 
 *Envie as anotações ao dono do projeto; o maestro transforma em backlog priorizado em `docs/MVP.md`.*
