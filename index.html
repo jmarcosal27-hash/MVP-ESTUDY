@@ -29,7 +29,7 @@
           <button id="next-week" aria-label="Próxima semana">›</button>
           <h2 id="week-title"></h2>
         </div>
-        <div class="cal-nav"><button id="week-config">⚙ Semana: limite e disponibilidade</button><button id="new-block" class="primary">+ Novo bloco</button></div>
+        <div class="cal-nav"><button id="gen-schedule">🗓 Gerar cronograma</button><button id="week-config">⚙ Semana: limite e disponibilidade</button><button id="new-block" class="primary">+ Novo bloco</button></div>
       </div>
       <div id="capacity" class="summary capacity"></div>
       <div id="week-summary" class="summary"></div>
@@ -60,9 +60,11 @@
   <dialog id="dlg-block"></dialog>
   <dialog id="dlg-settings"></dialog>
   <dialog id="dlg-week"></dialog>
+  <dialog id="dlg-schedule"></dialog>
 
   <script src="js/core.js"></script>
   <script src="js/capacity.js"></script>
+  <script src="js/scheduler.js"></script>
   <script src="js/commands.js"></script>
   <script src="js/chat.js"></script>
   <script src="js/app.js"></script>

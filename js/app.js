@@ -630,10 +630,92 @@
   $('#today-week').addEventListener('click', () => { ui.weekStart = C.mondayOf(new Date()); render(); });
   $('#new-block').addEventListener('click', () => openBlockDialog({}));
   $('#week-config').addEventListener('click', openWeekDialog);
+  $('#gen-schedule').addEventListener('click', openScheduleDialog);
   $('#report-filters').addEventListener('input', renderReports);
   $('#f-clear').addEventListener('click', () => { $('#report-filters').reset(); renderReports(); });
   window.addEventListener('storage', (e) => { if (e.key === KEY) { state = load(); ui.timerSig = ''; render(); } });
   document.addEventListener('visibilitychange', tick);
+
+  /* ---------- gerar cronograma (requisito 08): propõe, deixa revisar e só grava após confirmar ---------- */
+  function openScheduleDialog() {
+    const dlg = $('#dlg-schedule'), monday = C.isoDate(ui.weekStart);
+    const rowHtml = () => `<div class="sched-row">
+      <label>Matéria *<input data-f="subject" list="subjects-s"></label><label>Assunto/atividade *<input data-f="title"></label>
+      <label>Qtd. de blocos *<input data-f="blocks" type="number" min="1" step="1" value="1"></label><label>Pomodoros por bloco *<input data-f="pomodoros" type="number" min="1" step="1" value="2"></label>
+      <label>Material (PDF/link)<input data-f="material"></label><label>Prazo<input data-f="deadline" type="date"></label>
+      <label>Prioridade<select data-f="priority"><option value="">—</option><option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option></select></label>
+      <label>Dia obrigatório<input data-f="fixedDate" type="date"></label><label>Hora obrigatória<input data-f="fixedStart" type="time"></label>
+      <button type="button" class="rm danger">Remover</button></div>`;
+    dlg.innerHTML = `<form method="dialog" id="sched-form" novalidate><h3>Gerar cronograma — semana de ${ui.weekStart.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}</h3>
+      <p class="muted">Informe o que precisa estudar. Uso a disponibilidade, o limite semanal e os blocos já agendados (que são preservados). Nada é gravado antes da sua confirmação.</p>
+      <datalist id="subjects-s">${[...new Set(state.blocks.map((x) => x.subject))].map((x) => `<option value="${esc(x)}">`).join('')}</datalist>
+      <div id="sched-rows">${rowHtml()}</div>
+      <div class="actions"><div class="left"><button type="button" id="sched-add">+ Mais um item</button></div><button type="button" id="sched-close">Fechar</button><button type="submit" class="primary">Gerar proposta</button></div>
+      <div class="errors" id="sched-errors"></div><div class="sched-out" id="sched-out"></div></form>`;
+    const rows = $('#sched-rows', dlg), out = $('#sched-out', dlg);
+    $('#sched-add', dlg).onclick = () => rows.insertAdjacentHTML('beforeend', rowHtml());
+    $('#sched-close', dlg).onclick = () => dlg.close();
+    rows.addEventListener('click', (e) => { if (e.target.classList.contains('rm') && rows.children.length > 1) e.target.closest('.sched-row').remove(); });
+    let proposal = null;
+
+    const showProposal = (r) => {
+      proposal = r;
+      const f = (m) => dur(m * C.MIN), cb = r.capacity.before, ca = r.capacity.after;
+      const capLine = ca.limitMin === null ? '' : `Carga da semana: ${f(cb.plannedNetMin)} → <b>${f(ca.plannedNetMin)}</b> de ${f(ca.limitMin)} (${ca.excessMin > 0 ? `<b style="color:var(--red)">excesso ${f(ca.excessMin)}</b>` : `saldo ${f(ca.balanceMin)}`}).`;
+      out.innerHTML = `<h4>Proposta (${r.placements.length} bloco(s))</h4><p>${capLine}</p>
+        ${r.placements.length ? `<div class="table-wrap"><table><thead><tr><th class="l">Usar</th><th class="l">Bloco</th><th>Dia</th><th>Início</th><th>Pomodoros</th><th class="l">Por quê</th></tr></thead><tbody>
+          ${r.placements.map((p, i) => `<tr data-i="${i}"><td class="l"><input type="checkbox" data-k="use" checked></td><td class="l">${esc(p.subject)} · ${esc(p.title)}${p.fixed ? ' 🔒' : ''}</td>
+            <td><input type="date" data-k="date" value="${p.date}"></td><td><input type="time" data-k="start" value="${p.start}"></td><td>${p.estimated}</td><td class="l muted" style="white-space:normal">${esc(p.reason || '')}</td></tr>`).join('')}</tbody></table></div>` : '<p>Nenhum bloco coube.</p>'}
+        ${r.unplaced.length ? `<div class="unplaced"><b>Não couberam (${r.unplaced.length}):</b><br>${r.unplaced.map((u) => `• ${esc((u.item && (u.item.title || u.item.subject)) || 'item')}${u.item && u.item.blockIndex ? ` (bloco ${u.item.blockIndex})` : ''} — ${esc(u.reason)}`).join('<br>')}</div>` : ''}
+        ${(r.warnings || []).map((w) => `<div class="muted">⚠ ${esc(w.text || w)}</div>`).join('')}
+        <div class="errors" id="sched-apply-errors"></div>
+        <div class="actions"><span class="muted" style="margin-right:auto">Ajuste dia e hora se quiser; ao confirmar eu reverifico conflitos.</span>
+          ${r.placements.length ? '<button type="button" id="sched-confirm" class="primary">Confirmar e gravar no calendário</button>' : ''}</div>`;
+      const cf = $('#sched-confirm', out);
+      if (cf) cf.onclick = confirmProposal;
+    };
+    function confirmProposal() {
+      const errBox = $('#sched-apply-errors', out); errBox.innerHTML = '';
+      const chosen = [...out.querySelectorAll('tbody tr')].filter((tr) => tr.querySelector('[data-k=use]').checked).map((tr) => {
+        const p = proposal.placements[Number(tr.dataset.i)];
+        return { ...p, date: tr.querySelector('[data-k=date]').value, start: tr.querySelector('[data-k=start]').value };
+      });
+      if (!chosen.length) { errBox.textContent = 'Selecione ao menos um bloco.'; return; }
+      const changes = chosen.map((p) => {
+        const blk = K.normalizeBlock({ id: uid(), subject: p.subject, title: p.title, date: p.date, start: p.start, estimated: p.estimated, config: p.config, kind: p.kind || 'estudo',
+          reviewOf: p.reviewOf || null, priority: p.priority || null, deadline: p.deadline || null, fixed: !!p.fixed, material: p.material || '', pdf: p.material || '',
+          completed: false, sessions: [], source: 'scheduler', originWeek: K.weekKey(p.date) });
+        return { op: 'create', id: blk.id, before: null, after: blk, summary: `Criar: ${blk.subject} · ${blk.title} em ${blk.date} ${blk.start}` };
+      });
+      // checa o efeito no limite antes de gravar (o limite nunca é alterado sozinho)
+      const wk = K.weekKey(chosen[0].date);
+      const hypo = K.capacityFor({ ...state, blocks: [...state.blocks, ...changes.map((c) => c.after)] }, wk, Date.now());
+      if (hypo.excessMin > 0 && !confirm(`Com os seus ajustes a carga da semana ultrapassa o limite em ${dur(hypo.excessMin * C.MIN)}. Gravar mesmo assim? (O limite NÃO será alterado.)`)) return;
+      const res = window.Commands.applyChanges(state, changes, { source: 'chat', summary: `Cronograma gerado: ${changes.length} bloco(s)`, nowMs: Date.now() });
+      if (!res.applied.length) { errBox.innerHTML = res.failed.map((f) => `<div>${esc(f.reason)}</div>`).join(''); return; }
+      state = K.normalizeState(res.state); save(); render(); if (chat) chat.refresh();
+      alert(`${res.applied.length} bloco(s) gravado(s) no calendário.${res.failed.length ? '\n\nNão foi possível gravar:\n' + res.failed.map((f) => '• ' + f.reason).join('\n') : ''}\n\nO botão "Desfazer última alteração" do Assistente desfaz este cronograma.`);
+      dlg.close();
+    }
+    $('#sched-form', dlg).addEventListener('submit', (e) => {
+      e.preventDefault();
+      const errs = [], items = [];
+      [...rows.children].forEach((row, i) => {
+        const g = (k) => row.querySelector(`[data-f=${k}]`).value.trim();
+        const blocks = Number(g('blocks')), pom = Number(g('pomodoros'));
+        if (!g('subject') || !g('title')) errs.push(`Item ${i + 1}: informe matéria e assunto.`);
+        if (!Number.isInteger(blocks) || blocks < 1 || !Number.isInteger(pom) || pom < 1) errs.push(`Item ${i + 1}: blocos e pomodoros devem ser inteiros ≥ 1.`);
+        if (g('fixedStart') && !g('fixedDate')) errs.push(`Item ${i + 1}: horário obrigatório precisa de um dia.`);
+        items.push({ subject: g('subject'), title: g('title'), blocks, pomodoros: pom, material: g('material') || undefined, deadline: g('deadline') || undefined,
+          priority: g('priority') || undefined, fixedDate: g('fixedDate') || undefined, fixedStart: g('fixedStart') || undefined });
+      });
+      $('#sched-errors', dlg).innerHTML = errs.map((m) => `<div>${esc(m)}</div>`).join('');
+      if (errs.length) return;
+      showProposal(window.Scheduler.proposeSchedule(state, { items, preserveExisting: true }, monday, Date.now()));
+    });
+    dlg.showModal();
+  }
+
   /* ---------- assistente (chat): só interpreta; cálculos e gravação passam pelos módulos ---------- */
   let chat = null;
   function toggleChat() {
