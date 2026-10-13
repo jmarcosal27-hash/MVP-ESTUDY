@@ -103,8 +103,8 @@ Botão **🗓 Gerar cronograma** (com a semana desejada aberta).
 | 7.5 | Informe prazo curto ou um dia/hora obrigatório (🔒) | Prazo apertado tem prioridade; o horário obrigatório é respeitado |  |
 | 7.6 | Já tendo blocos/revisões na semana, gere de novo | Os existentes **não são movidos nem duplicados** |  |
 
-## Parte 8 — Chat (Assistente)
-Exige abrir pelo `iniciar.bat`. Botão **💬 Assistente**.
+## Parte 8 — Chat (Assistente) — **PULE esta parte**
+O chat não funciona no `estudy.html` (precisa do servidor local e da chave do dono). Será testado depois, junto com o dono do projeto. Fica aqui só como referência. Botão **💬 Assistente**.
 | # | Escreva | Esperado | ✅/❌ |
 |---|---|---|---|
 | 8.1 | "Crie um bloco de Redes amanhã às 9h com 3 pomodoros" | Pergunta só o que faltar; mostra proposta e **só altera após confirmar** (pedido direto e sem conflito pode executar na hora e informar) |  |
