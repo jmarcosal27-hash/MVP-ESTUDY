@@ -33,7 +33,7 @@
     const h = Number(m[1]), mi = Number(m[2] || 0);
     return h > 23 || mi > 59 ? null : `${C.pad(h)}:${C.pad(mi)}`;
   }
-  const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+  const isDate = (s) => C.okDate(s);
   function parseWeekday(v) {
     if (Number.isInteger(v) && v >= 1 && v <= 7) return v;
     const n = norm(v).replace(/-feira$/, '');
@@ -65,6 +65,10 @@
     if (start && !matches.length) { // sem início exato: aceita o bloco que cobre esse horário
       const st = C.toMin(start);
       matches = base.filter((b) => { const [a, e] = spanOf(Cap.normalizeBlock(b)); return a <= st && st < e; });
+    }
+    if (matches.length > 1 && ref.title) { // título exato vence título parcial ("Crase" × "Revisão: Crase")
+      const exact = matches.filter((b) => norm(b.title) === norm(ref.title));
+      if (exact.length) matches = exact;
     }
     matches = matches.slice().sort(byWhen);
     return { status: matches.length === 1 ? 'one' : matches.length ? 'ambiguous' : 'none', matches };
@@ -170,6 +174,31 @@
     ctx.mutating++;
   }
 
+  /** Valida o valor de cada campo editável pelo chat por tipo/formato (o modelo não é confiável). */
+  function cleanField(k, v, block) {
+    const str = (max) => (typeof v === 'string' ? { value: v.trim().slice(0, max) } : { error: true });
+    const intOrNull = () => (v === null ? { value: null } : Number.isInteger(v) && v >= 0 ? { value: v } : { error: true });
+    switch (k) {
+      case 'subject': case 'title': { const r = str(200); return r.error || !r.value ? { error: true } : r; }
+      case 'material': case 'pdf': case 'pages': return str(300);
+      case 'notes': case 'studied': return str(2000);
+      case 'date': return C.okDate(v) ? { value: v } : { error: true };
+      case 'start': { const t = normTime(v); return t && C.okTime(t) ? { value: t } : { error: true }; }
+      case 'deadline': return v === null ? { value: null } : C.okDate(v) ? { value: v } : { error: true };
+      case 'estimated': return Number.isInteger(v) && v >= 1 && v <= 50 ? { value: v } : { error: true };
+      case 'config': {
+        if (!v || typeof v !== 'object') return { error: true };
+        const c = { ...block.config, ...v };
+        return ['focusMin', 'shortMin', 'longEvery', 'longMin'].every((f) => Number.isInteger(c[f]) && c[f] >= 1 && c[f] <= 1440) ? { value: { focusMin: c.focusMin, shortMin: c.shortMin, longEvery: c.longEvery, longMin: c.longMin } } : { error: true };
+      }
+      case 'kind': return v === 'estudo' || v === 'revisao' ? { value: v } : { error: true };
+      case 'priority': return v === null || ['alta', 'media', 'baixa'].includes(v) ? { value: v } : { error: true };
+      case 'fixed': return typeof v === 'boolean' ? { value: v } : { error: true };
+      case 'remainingMin': return intOrNull();
+      default: return { error: true };
+    }
+  }
+
   /* ---------- manipuladores de comando ---------- */
   function cmdCreate(ctx, i, cmd) {
     const raw = cmd.block || {};
@@ -182,8 +211,10 @@
     if (!start) missing.push('horário de início');
     if (!Number.isInteger(raw.estimated) || raw.estimated < 1) missing.push('quantidade de pomodoros');
     if (missing.length) { ask(ctx, { id: `missing_${i}`, missing, text: `Para criar o bloco, falta informar: ${missing.join(', ')}.` }); return; }
-    const draft = Cap.normalizeBlock({ ...raw, subject: String(raw.subject).trim(), title: String(raw.title).trim(), start, config: cfg,
-      id: raw.id || genId(ctx), completed: false, sessions: [], source: 'chat', originWeek: Cap.weekKey(raw.date) });
+    // Só campos conhecidos (nada de `...raw`): o modelo nunca escolhe o id nem injeta campos arbitrários.
+    const draft = Cap.normalizeBlock({ subject: String(raw.subject).trim(), title: String(raw.title).trim(), date: raw.date, start, estimated: raw.estimated, config: cfg,
+      kind: raw.kind, priority: raw.priority, deadline: raw.deadline, fixed: raw.fixed, material: raw.material, pdf: raw.pdf, pages: raw.pages, notes: raw.notes, reviewOf: raw.reviewOf,
+      id: genId(ctx), completed: false, sessions: [], source: 'chat', originWeek: Cap.weekKey(raw.date) });
     const errs = C.validateBlockPlan(draft);
     if (errs.length) { ask(ctx, { id: `invalid_${i}`, text: `Não consigo criar o bloco: ${errs.join(' ')}` }); return; }
     const dup = ctx.work.find((b) => norm(b.subject) === norm(draft.subject) && norm(b.title) === norm(draft.title) && b.date === draft.date && b.start === draft.start);
@@ -192,7 +223,7 @@
     if (clash.length) {
       ctx.conflicts.push({ blockId: draft.id, with: clash.map((b) => b.id), text: `${fmtWhen(draft.date, draft.start)} está ocupado por ${clash.map((b) => `"${b.title}"`).join(', ')}.` });
       const alts = slotsFor(ctx, draft, { prefDate: draft.date, prefStart: draft.start, afterMs: ctx.nowMs })
-        .map((s) => ({ text: `Criar em ${fmtWhen(s.date, s.start)}`, commands: [{ type: 'create_block', block: { ...raw, date: s.date, start: s.start } }] }));
+        .map((s) => ({ text: `Criar em ${fmtWhen(s.date, s.start)}`, commands: [{ type: 'create_block', block: { subject: draft.subject, title: draft.title, estimated: draft.estimated, config: draft.config, kind: draft.kind, priority: draft.priority, deadline: draft.deadline, fixed: draft.fixed, material: draft.material, notes: draft.notes, date: s.date, start: s.start } }] }));
       ctx.alternatives.push(...alts);
       ask(ctx, { id: `dest_busy_${i}`, text: `${fmtWhen(draft.date, draft.start)} está ocupado por ${clash.map((b) => `"${b.title}"`).join(', ')}. ${alts.length ? 'Escolha um horário livre:' : 'Diga outro horário.'}`,
         options: alts.map((a) => ({ label: a.text, commands: a.commands })) });
@@ -214,7 +245,9 @@
     const ch = cmd.changes || {}, patch = {};
     for (const k of Object.keys(ch)) {
       if (!UPDATABLE.includes(k)) { warn(ctx, 'CAMPO_IGNORADO', `O campo "${k}" não pode ser alterado pelo chat.`); continue; }
-      patch[k] = k === 'config' ? { ...b.config, ...ch[k] } : k === 'start' ? (normTime(ch[k]) || ch[k]) : ch[k];
+      const v = cleanField(k, ch[k], b);
+      if (v.error) { warn(ctx, 'VALOR_INVALIDO', `Valor inválido para "${k}"; ignorei essa alteração.`); continue; }
+      patch[k] = v.value;
     }
     modify(ctx, i, b, patch, 'Editar');
   }
@@ -230,6 +263,11 @@
   function cmdDelete(ctx, i, cmd) {
     const b = resolveOne(ctx, i, cmd.ref); if (!b) return;
     const studied = C.sessionsTotals(b.sessions).studyMs;
+    if (ctx.state.session && ctx.state.session.blockId === b.id) {
+      warn(ctx, 'CRONOMETRO_ATIVO', `"${b.title}" tem um cronômetro em andamento. Encerre o cronômetro (para salvar o tempo) antes de excluir o bloco.`);
+      ask(ctx, { id: `timer_active_${i}`, text: `Não excluí "${b.title}": há um cronômetro em andamento nele. Encerre-o primeiro para não perder o tempo estudado.` });
+      return;
+    }
     if (studied > 0) warn(ctx, 'EXCLUI_ESTUDO_REGISTRADO', `"${b.title}" tem ${C.fmtDur(studied)} de estudo registrado, que será apagado junto.`);
     ctx.confirm = true; // excluir sempre pede confirmação
     commit(ctx, { op: 'delete', id: b.id, before: clone(b), after: null, summary: `Excluir: ${describe(b)}` });
@@ -314,7 +352,7 @@
     const date = isDate(cmd.week) ? cmd.week : C.isoDate(new Date(ctx.nowMs)), week = Cap.weekKey(date);
     const cap = Cap.capacityFor(vstate(ctx), week, ctx.nowMs);
     const lim = cap.limitMin == null ? 'sem limite' : `limite ${C.fmtDur(cap.limitMin * C.MIN)}`;
-    note(ctx, 'capacity', `Semana de ${fmtDay(week)}: ${lim}, planejado ${C.fmtDur(cap.plannedNetMin * C.MIN)}${cap.balanceMin == null ? '' : `, saldo ${C.fmtDur(Math.abs(cap.balanceMin) * C.MIN)}${cap.balanceMin < 0 ? ' (excesso)' : ''}`}.`, { week, capacity: cap });
+    note(ctx, 'capacity', `Semana de ${fmtDay(week)}: ${lim}, planejado ${C.fmtDur(cap.plannedNetMin * C.MIN)}${cap.balanceMin == null ? '' : `, ${cap.balanceMin < 0 ? 'excesso de' : 'saldo'} ${C.fmtDur(Math.abs(cap.balanceMin) * C.MIN)}`}.`, { week, capacity: cap });
   }
 
   function cmdPropose(ctx, i, cmd) {
@@ -385,7 +423,7 @@
     const before = week ? ((st.weekOverrides || {})[week] || {}).limitMin : (st.settings || {}).weeklyLimitMin;
     const label = v === null ? 'sem limite' : C.fmtDur(v * C.MIN);
     ctx.changes.push({ op: 'setting', id: `limit:${week || 'padrao'}`, target: week ? { scope: 'week', week } : { scope: 'default' },
-      before: before === undefined ? null : before, after: v, summary: week ? `Limite da semana de ${fmtDay(week)}: ${label}` : `Limite semanal padrão: ${label}` });
+      before: before === undefined ? (week ? { absent: true } : null) : before, after: v, summary: week ? `Limite da semana de ${fmtDay(week)}: ${label}` : `Limite semanal padrão: ${label}` });
     ctx.confirm = true; ctx.mutating++;
   }
 
@@ -453,7 +491,10 @@
   }
   function setSetting(s, target, value) {
     if (target.scope === 'week') {
-      s.weekOverrides[target.week] = { ...(s.weekOverrides[target.week] || {}), limitMin: value };
+      if (value && value.absent) { // volta a valer o limite padrão (sem exceção)
+        const cur = { ...(s.weekOverrides[target.week] || {}) }; delete cur.limitMin;
+        if (Object.keys(cur).length) s.weekOverrides[target.week] = cur; else delete s.weekOverrides[target.week];
+      } else s.weekOverrides[target.week] = { ...(s.weekOverrides[target.week] || {}), limitMin: value };
     } else s.settings.weeklyLimitMin = value;
   }
 
@@ -482,7 +523,7 @@
         if (errs.length) { fail(ch, 'INVALIDO', errs.join(' ')); continue; }
         const clash = clashWith(a);
         if (clash.length) { fail(ch, 'CONFLITO', `${fmtWhen(a.date, a.start)} agora está ocupado por "${clash[0].title}".`); continue; }
-        s.blocks.push(clone(a)); applied.push(ch);
+        s.blocks.push(Cap.normalizeBlock(clone(a))); applied.push(ch);
       } else if (ch.op === 'update') {
         if (idx < 0) { fail(ch, 'NAO_ENCONTRADO', 'O bloco não existe mais.'); continue; }
         const cur = Cap.normalizeBlock(s.blocks[idx]), keys = changedKeys(ch.before, ch.after);
@@ -500,7 +541,8 @@
         s.blocks.splice(idx, 1); applied.push(ch);
       } else if (ch.op === 'setting') {
         const cur = ch.target.scope === 'week' ? (s.weekOverrides[ch.target.week] || {}).limitMin : s.settings.weeklyLimitMin;
-        if ((cur === undefined ? null : cur) !== ch.before) { fail(ch, 'DESATUALIZADO', 'O limite foi alterado depois da proposta.'); continue; }
+        const same = ch.before && ch.before.absent ? cur === undefined : (cur === undefined ? null : cur) === ch.before;
+        if (!same) { fail(ch, 'DESATUALIZADO', 'O limite foi alterado depois da proposta.'); continue; }
         setSetting(s, ch.target, ch.after); applied.push(ch);
       } else fail(ch, 'INVALIDO', `Operação desconhecida: ${ch.op}`);
     }
@@ -544,7 +586,8 @@
       }
     }
     const logged = s.changeLog.find((c) => c.id === set.id);
-    logged.undone = true; logged.undoneAt = Date.now();
+    if (failed.length) { logged.ops = failed.map((f) => f.op); logged.partial = true; } // o que não voltou continua desfazível depois
+    else { logged.undone = true; logged.undoneAt = Date.now(); }
     return { state: s, undone: logged, reverted, failed };
   }
 

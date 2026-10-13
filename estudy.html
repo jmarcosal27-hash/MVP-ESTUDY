@@ -4,14 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Estudy – Organização dos Estudos</title>
+  <link rel="icon" href="data:,">
   <style>
 :root {
-  --bg: #f4f6fa; --surface: #fff; --text: #1d2433; --muted: #6a7389; --line: #dfe3ec; --accent: #3b5bdb;
-  --blue: #1971c2; --blue-bg: #d0ebff; --red: #c92a2a; --red-bg: #ffe3e3; --green: #2b8a3e; --green-bg: #d3f9d8;
+  --bg: #f4f6fa; --surface: #fff; --text: #1d2433; --muted: #5b647a; --line: #dfe3ec; --accent: #3b5bdb; --accent-solid: #3b5bdb; --accent-text: #3b5bdb; --meta: #3d465c;
+  --blue: #14609f; --blue-bg: #d0ebff; --red: #a61e1e; --red-bg: #ffe3e3; --green: #1d6e2e; --green-bg: #d3f9d8;
   --warn: #e67700; --hour: 52px;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #14171f; --surface: #1d222d; --text: #e6e9f0; --muted: #98a1b6; --line: #333a4a; --accent: #748ffc;
+  :root { --bg: #14171f; --surface: #1d222d; --text: #e6e9f0; --muted: #a6aec2; --line: #333a4a; --accent: #748ffc; --accent-solid: #4263eb; --accent-text: #b5c4ff; --meta: #c9d0e0;
     --blue: #74c0fc; --blue-bg: #1c3550; --red: #ffa8a8; --red-bg: #4a2327; --green: #8ce99a; --green-bg: #1f4128; --warn: #ffc078; }
 }
 * { box-sizing: border-box; }
@@ -19,12 +20,12 @@ body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: var(--bg); c
 button, input, select, textarea { font: inherit; color: inherit; }
 button { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
 button:hover { border-color: var(--accent); }
-button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.primary { background: var(--accent-solid); color: #fff; border-color: var(--accent-solid); }
 button.danger { color: var(--red); }
 input, select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; }
 .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
 .topbar h1 { font-size: 18px; margin: 0; }
-.tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.tab.active { background: var(--accent-solid); color: #fff; border-color: var(--accent-solid); }
 main { padding: 12px 16px 220px; }
 .muted { color: var(--muted); font-size: 12px; }
 .cal-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -60,9 +61,9 @@ main { padding: 12px 16px 220px; }
 .block.conflict { outline: 2px solid var(--warn); }
 .block.active { box-shadow: 0 0 0 2px var(--accent); }
 .block b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.block .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.block .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--meta); }
 .tag { font-weight: 700; font-size: 11px; }
-.tag.run { color: var(--accent); }
+.tag.run { color: var(--accent-text); }
 .tag.warn { color: var(--warn); }
 
 .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
@@ -108,7 +109,7 @@ legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
 .chat-drawer { position: fixed; right: 12px; top: 64px; bottom: 12px; width: min(380px, calc(100vw - 24px)); z-index: 9; background: var(--surface);
   border: 1px solid var(--line); border-radius: 12px; padding: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.2); display: flex; flex-direction: column; }
 .chat-drawer[hidden] { display: none; }
-body.has-timer .chat-drawer { bottom: 270px; }
+body.has-timer .chat-drawer { bottom: 292px; }
 @media (min-width: 1100px) { body.chat-open main { margin-right: 404px; } }
 .chat-drawer.chat { height: auto; }
 
@@ -119,6 +120,8 @@ body.has-timer .chat-drawer { bottom: 270px; }
 .sched-out table td, .sched-out table th { padding: 4px 6px; }
 .sched-out input[type=date], .sched-out input[type=time] { width: auto; }
 .unplaced { background: var(--red-bg); color: var(--red); border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
+
+.block:focus-visible, button:focus-visible, .tab:focus-visible { outline: 3px solid var(--accent-text); outline-offset: 2px; }
 
 </style>
   <style>
@@ -131,7 +134,7 @@ body.has-timer .chat-drawer { bottom: 270px; }
 .chat-banner[hidden] { display: none; }
 .chat-list { flex: 1; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; }
 .chat-msg { max-width: 92%; padding: 6px 10px; border-radius: 10px; line-height: 1.4; overflow-wrap: anywhere; }
-.chat-user { align-self: flex-end; background: var(--accent, #3b5bdb); color: #fff; }
+.chat-user { align-self: flex-end; background: var(--accent-solid, #3b5bdb); color: #fff; }
 .chat-assistant { align-self: flex-start; background: var(--surface, #fff); border: 1px solid var(--line, #dfe3ec); }
 .chat-system { align-self: flex-start; background: var(--bg, #f4f6fa); border: 1px dashed var(--line, #dfe3ec); color: var(--muted, #6a7389); font-size: 13px; }
 .chat-card { align-self: stretch; background: var(--surface, #fff); border: 1px solid var(--accent, #3b5bdb); border-radius: 10px; padding: 8px 10px; }
@@ -212,6 +215,7 @@ body.has-timer .chat-drawer { bottom: 270px; }
   <dialog id="dlg-settings"></dialog>
   <dialog id="dlg-week"></dialog>
   <dialog id="dlg-schedule"></dialog>
+  <dialog id="dlg-pick"></dialog>
 
   <script>
 /* Regras de negócio do MVP-ESTUDY (sem acesso a DOM ou storage, para ser testável em Node). */
@@ -226,6 +230,9 @@ body.has-timer .chat-drawer { bottom: 270px; }
   const pad = (n) => String(n).padStart(2, '0');
   const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const parseDate = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  /** Data real no formato YYYY-MM-DD (rejeita 2026-02-31) e hora real HH:MM (rejeita 12:75). */
+  const okDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && isoDate(parseDate(s)) === s;
+  const okTime = (s) => typeof s === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
   const toMin = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
   const fromMin = (min) => `${pad(Math.floor(min / 60))}:${pad(min % 60)}`;
   const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
@@ -283,8 +290,8 @@ body.has-timer .chat-drawer { bottom: 270px; }
     const errors = [];
     if (!b.subject || !b.subject.trim()) errors.push('Informe a matéria.');
     if (!b.title || !b.title.trim()) errors.push('Informe o assunto ou título.');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(b.date || '')) errors.push('Informe o dia do estudo.');
-    if (!/^\d{2}:\d{2}$/.test(b.start || '')) errors.push('Informe o horário de início.');
+    if (!okDate(b.date)) errors.push('Informe um dia válido para o estudo.');
+    if (!okTime(b.start)) errors.push('Informe um horário de início válido (HH:MM).');
     if (!Number.isInteger(b.estimated) || b.estimated < 1) errors.push('A estimativa deve ser um número inteiro de pomodoros (mínimo 1).');
     errors.push(...validateConfig(b.config));
     if (!errors.length && blockSpan(b).endMin > 1440) errors.push('O bloco ultrapassa a meia-noite; ajuste o horário ou a quantidade de pomodoros.');
@@ -571,7 +578,7 @@ body.has-timer .chat-drawer { bottom: 270px; }
   }
 
   return {
-    MIN, DEFAULT_CONFIG, pad, isoDate, parseDate, toMin, fromMin, addDays, mondayOf, atMinutes, fmtDur, fmtClock,
+    MIN, DEFAULT_CONFIG, pad, isoDate, parseDate, okDate, okTime, toMin, fromMin, addDays, mondayOf, atMinutes, fmtDur, fmtClock,
     validateConfig, breaksFor, planBlock, blockSpan, validateBlockPlan, blockStatus, STATUS_LABEL,
     parseCount, validateResult, accuracy, totalsOfSegments, addTotals, sessionsTotals, sessionsPomodoros, zeroTotals,
     startSession, elapsed, advance, pause, resume, startBreak, startFocus, finishSession, liveTotals,
@@ -597,28 +604,66 @@ body.has-timer .chat-drawer { bottom: 270px; }
   });
   const DEFAULT_LIMIT_MIN = 1200; // 20h líquidas por semana (editável)
 
-  function normalizeBlock(b) {
-    return { kind: 'estudo', reviewOf: null, priority: null, deadline: null, fixed: false, material: '',
-      originWeek: weekKey(b.date), remainingMin: null, source: 'manual', pdf: '', pages: '', studied: '', notes: '',
-      questions: null, hits: null, completed: false, ...b, sessions: b.sessions || [] };
+  /* ---------- saneamento: nada vindo do storage ou do chat é confiável ---------- */
+  const cleanInt = (v) => {
+    const n = typeof v === 'number' ? v : (typeof v === 'string' && /^\s*\d+\s*$/.test(v) ? Number(v) : NaN);
+    return Number.isInteger(n) && n >= 0 ? n : null;
+  };
+  const cleanStr = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+  const posInt = (v, def) => (Number.isInteger(v) && v >= 1 && v <= 1440 ? v : def);
+  function cleanConfig(c, base) {
+    const d = { ...C.DEFAULT_CONFIG, ...(base || {}) }, o = c && typeof c === 'object' ? c : {};
+    return { focusMin: posInt(o.focusMin, d.focusMin), shortMin: posInt(o.shortMin, d.shortMin), longEvery: posInt(o.longEvery, d.longEvery), longMin: posInt(o.longMin, d.longMin) };
+  }
+  /** Devolve uma cópia saneada do bloco (tipos e enums válidos). Não valida data/hora: isso é feito por normalizeState/validateBlockPlan. */
+  function normalizeBlock(b, defaultConfig) {
+    b = b && typeof b === 'object' ? b : {};
+    const date = typeof b.date === 'string' ? b.date : '';
+    return {
+      ...b,
+      id: String(b.id === undefined || b.id === null ? 'bloco' : b.id).replace(/[^\w.-]/g, '_').slice(0, 64) || 'bloco',
+      subject: cleanStr(b.subject, 200), title: cleanStr(b.title, 200), date, start: typeof b.start === 'string' ? b.start : '',
+      estimated: b.estimated, config: cleanConfig(b.config, defaultConfig),
+      kind: b.kind === 'revisao' ? 'revisao' : 'estudo', reviewOf: typeof b.reviewOf === 'string' ? b.reviewOf.slice(0, 64) : null,
+      priority: ['alta', 'media', 'baixa'].includes(b.priority) ? b.priority : null,
+      deadline: C.okDate(b.deadline) ? b.deadline : null, fixed: b.fixed === true,
+      material: cleanStr(b.material, 300), pdf: cleanStr(b.pdf, 300), pages: cleanStr(b.pages, 200), studied: cleanStr(b.studied, 1000), notes: cleanStr(b.notes, 2000),
+      originWeek: C.okDate(b.originWeek) ? b.originWeek : (C.okDate(date) ? weekKey(date) : null),
+      remainingMin: cleanInt(b.remainingMin), source: ['manual', 'chat', 'scheduler'].includes(b.source) ? b.source : 'manual',
+      questions: cleanInt(b.questions), hits: cleanInt(b.hits), completed: b.completed === true,
+      sessions: Array.isArray(b.sessions) ? b.sessions.filter((x) => x && typeof x === 'object' && x.totals && typeof x.totals === 'object') : [],
+    };
+  }
+  const validBlock = (b) => C.okDate(b.date) && C.okTime(b.start) && Number.isInteger(b.estimated) && b.estimated >= 1;
+  /** Uma sessão de cronômetro só é aceita se tiver a estrutura que o core.js espera. */
+  function validSession(x) {
+    return !!x && typeof x === 'object' && typeof x.blockId === 'string' && Array.isArray(x.segments) && Array.isArray(x.cycles) && x.cfg && typeof x.cfg === 'object'
+      && ['focus', 'extra', 'short', 'long'].includes(x.phase) && ['running', 'paused', 'awaiting'].includes(x.state) && Number.isFinite(x.startedAt)
+      && Number.isFinite(x.phaseMs) && Number.isInteger(x.pomo);
   }
   function normalizeState(s) {
-    const st = s.settings || {};
+    s = s && typeof s === 'object' ? s : {};
+    const st = s.settings && typeof s.settings === 'object' ? s.settings : {};
+    const config = cleanConfig(st.config);
+    const blocks = [], quarantine = Array.isArray(s.quarantine) ? s.quarantine.slice() : [];
+    for (const raw of Array.isArray(s.blocks) ? s.blocks : []) {
+      const nb = normalizeBlock(raw, config);
+      if (raw && typeof raw === 'object' && validBlock(nb)) blocks.push(nb); else quarantine.push(raw); // inválido não é exibido nem apagado
+    }
     return {
       ...s,
       settings: {
-        ...st,
-        config: { ...C.DEFAULT_CONFIG, ...(st.config || {}) },
-        weeklyLimitMin: st.weeklyLimitMin === undefined ? DEFAULT_LIMIT_MIN : st.weeklyLimitMin,
-        availability: st.availability || DEFAULT_AVAILABILITY(),
-        closing: st.closing || { day: 7, time: '21:00' },
+        ...st, config,
+        weeklyLimitMin: st.weeklyLimitMin === undefined ? DEFAULT_LIMIT_MIN : (st.weeklyLimitMin === null ? null : (cleanInt(st.weeklyLimitMin) ?? DEFAULT_LIMIT_MIN)),
+        availability: st.availability && typeof st.availability === 'object' && st.availability.days ? { days: st.availability.days, unavailable: Array.isArray(st.availability.unavailable) ? st.availability.unavailable : [] } : DEFAULT_AVAILABILITY(),
+        closing: st.closing && typeof st.closing === 'object' ? st.closing : { day: 7, time: '21:00' },
       },
-      weekOverrides: s.weekOverrides || {},
-      blocks: (s.blocks || []).map(normalizeBlock),
-      changeLog: s.changeLog || [],
-      reports: s.reports || {},
-      chat: s.chat || { messages: [] },
-      session: s.session || null,
+      weekOverrides: s.weekOverrides && typeof s.weekOverrides === 'object' ? s.weekOverrides : {},
+      blocks, quarantine: quarantine.slice(-200),
+      changeLog: Array.isArray(s.changeLog) ? s.changeLog : [],
+      reports: s.reports && typeof s.reports === 'object' ? s.reports : {},
+      chat: s.chat && typeof s.chat === 'object' && Array.isArray(s.chat.messages) ? s.chat : { messages: [] },
+      session: validSession(s.session) ? s.session : null,
     };
   }
 
@@ -766,7 +811,7 @@ body.has-timer .chat-drawer { bottom: 270px; }
     return { fitsCapacity, fitsAgenda, fits: fitsCapacity && fitsAgenda, excessMin, balanceMin: cfg.balanceMin, options };
   }
 
-  return { DEFAULT_LIMIT_MIN, DEFAULT_AVAILABILITY, normalizeBlock, normalizeState, weekKey, isoWeekday, weekDates, effectiveWeek,
+  return { DEFAULT_LIMIT_MIN, DEFAULT_AVAILABILITY, normalizeBlock, normalizeState, validBlock, validSession, weekKey, isoWeekday, weekDates, effectiveWeek,
     netStudyMin, agendaMin, realizedMin, remainingMin, freeIntervals, capacityFor, wouldFit };
 });
 
@@ -1058,7 +1103,7 @@ body.has-timer .chat-drawer { bottom: 270px; }
     const h = Number(m[1]), mi = Number(m[2] || 0);
     return h > 23 || mi > 59 ? null : `${C.pad(h)}:${C.pad(mi)}`;
   }
-  const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+  const isDate = (s) => C.okDate(s);
   function parseWeekday(v) {
     if (Number.isInteger(v) && v >= 1 && v <= 7) return v;
     const n = norm(v).replace(/-feira$/, '');
@@ -1090,6 +1135,10 @@ body.has-timer .chat-drawer { bottom: 270px; }
     if (start && !matches.length) { // sem início exato: aceita o bloco que cobre esse horário
       const st = C.toMin(start);
       matches = base.filter((b) => { const [a, e] = spanOf(Cap.normalizeBlock(b)); return a <= st && st < e; });
+    }
+    if (matches.length > 1 && ref.title) { // título exato vence título parcial ("Crase" × "Revisão: Crase")
+      const exact = matches.filter((b) => norm(b.title) === norm(ref.title));
+      if (exact.length) matches = exact;
     }
     matches = matches.slice().sort(byWhen);
     return { status: matches.length === 1 ? 'one' : matches.length ? 'ambiguous' : 'none', matches };
@@ -1195,6 +1244,31 @@ body.has-timer .chat-drawer { bottom: 270px; }
     ctx.mutating++;
   }
 
+  /** Valida o valor de cada campo editável pelo chat por tipo/formato (o modelo não é confiável). */
+  function cleanField(k, v, block) {
+    const str = (max) => (typeof v === 'string' ? { value: v.trim().slice(0, max) } : { error: true });
+    const intOrNull = () => (v === null ? { value: null } : Number.isInteger(v) && v >= 0 ? { value: v } : { error: true });
+    switch (k) {
+      case 'subject': case 'title': { const r = str(200); return r.error || !r.value ? { error: true } : r; }
+      case 'material': case 'pdf': case 'pages': return str(300);
+      case 'notes': case 'studied': return str(2000);
+      case 'date': return C.okDate(v) ? { value: v } : { error: true };
+      case 'start': { const t = normTime(v); return t && C.okTime(t) ? { value: t } : { error: true }; }
+      case 'deadline': return v === null ? { value: null } : C.okDate(v) ? { value: v } : { error: true };
+      case 'estimated': return Number.isInteger(v) && v >= 1 && v <= 50 ? { value: v } : { error: true };
+      case 'config': {
+        if (!v || typeof v !== 'object') return { error: true };
+        const c = { ...block.config, ...v };
+        return ['focusMin', 'shortMin', 'longEvery', 'longMin'].every((f) => Number.isInteger(c[f]) && c[f] >= 1 && c[f] <= 1440) ? { value: { focusMin: c.focusMin, shortMin: c.shortMin, longEvery: c.longEvery, longMin: c.longMin } } : { error: true };
+      }
+      case 'kind': return v === 'estudo' || v === 'revisao' ? { value: v } : { error: true };
+      case 'priority': return v === null || ['alta', 'media', 'baixa'].includes(v) ? { value: v } : { error: true };
+      case 'fixed': return typeof v === 'boolean' ? { value: v } : { error: true };
+      case 'remainingMin': return intOrNull();
+      default: return { error: true };
+    }
+  }
+
   /* ---------- manipuladores de comando ---------- */
   function cmdCreate(ctx, i, cmd) {
     const raw = cmd.block || {};
@@ -1207,8 +1281,10 @@ body.has-timer .chat-drawer { bottom: 270px; }
     if (!start) missing.push('horário de início');
     if (!Number.isInteger(raw.estimated) || raw.estimated < 1) missing.push('quantidade de pomodoros');
     if (missing.length) { ask(ctx, { id: `missing_${i}`, missing, text: `Para criar o bloco, falta informar: ${missing.join(', ')}.` }); return; }
-    const draft = Cap.normalizeBlock({ ...raw, subject: String(raw.subject).trim(), title: String(raw.title).trim(), start, config: cfg,
-      id: raw.id || genId(ctx), completed: false, sessions: [], source: 'chat', originWeek: Cap.weekKey(raw.date) });
+    // Só campos conhecidos (nada de `...raw`): o modelo nunca escolhe o id nem injeta campos arbitrários.
+    const draft = Cap.normalizeBlock({ subject: String(raw.subject).trim(), title: String(raw.title).trim(), date: raw.date, start, estimated: raw.estimated, config: cfg,
+      kind: raw.kind, priority: raw.priority, deadline: raw.deadline, fixed: raw.fixed, material: raw.material, pdf: raw.pdf, pages: raw.pages, notes: raw.notes, reviewOf: raw.reviewOf,
+      id: genId(ctx), completed: false, sessions: [], source: 'chat', originWeek: Cap.weekKey(raw.date) });
     const errs = C.validateBlockPlan(draft);
     if (errs.length) { ask(ctx, { id: `invalid_${i}`, text: `Não consigo criar o bloco: ${errs.join(' ')}` }); return; }
     const dup = ctx.work.find((b) => norm(b.subject) === norm(draft.subject) && norm(b.title) === norm(draft.title) && b.date === draft.date && b.start === draft.start);
@@ -1217,7 +1293,7 @@ body.has-timer .chat-drawer { bottom: 270px; }
     if (clash.length) {
       ctx.conflicts.push({ blockId: draft.id, with: clash.map((b) => b.id), text: `${fmtWhen(draft.date, draft.start)} está ocupado por ${clash.map((b) => `"${b.title}"`).join(', ')}.` });
       const alts = slotsFor(ctx, draft, { prefDate: draft.date, prefStart: draft.start, afterMs: ctx.nowMs })
-        .map((s) => ({ text: `Criar em ${fmtWhen(s.date, s.start)}`, commands: [{ type: 'create_block', block: { ...raw, date: s.date, start: s.start } }] }));
+        .map((s) => ({ text: `Criar em ${fmtWhen(s.date, s.start)}`, commands: [{ type: 'create_block', block: { subject: draft.subject, title: draft.title, estimated: draft.estimated, config: draft.config, kind: draft.kind, priority: draft.priority, deadline: draft.deadline, fixed: draft.fixed, material: draft.material, notes: draft.notes, date: s.date, start: s.start } }] }));
       ctx.alternatives.push(...alts);
       ask(ctx, { id: `dest_busy_${i}`, text: `${fmtWhen(draft.date, draft.start)} está ocupado por ${clash.map((b) => `"${b.title}"`).join(', ')}. ${alts.length ? 'Escolha um horário livre:' : 'Diga outro horário.'}`,
         options: alts.map((a) => ({ label: a.text, commands: a.commands })) });
@@ -1239,7 +1315,9 @@ body.has-timer .chat-drawer { bottom: 270px; }
     const ch = cmd.changes || {}, patch = {};
     for (const k of Object.keys(ch)) {
       if (!UPDATABLE.includes(k)) { warn(ctx, 'CAMPO_IGNORADO', `O campo "${k}" não pode ser alterado pelo chat.`); continue; }
-      patch[k] = k === 'config' ? { ...b.config, ...ch[k] } : k === 'start' ? (normTime(ch[k]) || ch[k]) : ch[k];
+      const v = cleanField(k, ch[k], b);
+      if (v.error) { warn(ctx, 'VALOR_INVALIDO', `Valor inválido para "${k}"; ignorei essa alteração.`); continue; }
+      patch[k] = v.value;
     }
     modify(ctx, i, b, patch, 'Editar');
   }
@@ -1255,6 +1333,11 @@ body.has-timer .chat-drawer { bottom: 270px; }
   function cmdDelete(ctx, i, cmd) {
     const b = resolveOne(ctx, i, cmd.ref); if (!b) return;
     const studied = C.sessionsTotals(b.sessions).studyMs;
+    if (ctx.state.session && ctx.state.session.blockId === b.id) {
+      warn(ctx, 'CRONOMETRO_ATIVO', `"${b.title}" tem um cronômetro em andamento. Encerre o cronômetro (para salvar o tempo) antes de excluir o bloco.`);
+      ask(ctx, { id: `timer_active_${i}`, text: `Não excluí "${b.title}": há um cronômetro em andamento nele. Encerre-o primeiro para não perder o tempo estudado.` });
+      return;
+    }
     if (studied > 0) warn(ctx, 'EXCLUI_ESTUDO_REGISTRADO', `"${b.title}" tem ${C.fmtDur(studied)} de estudo registrado, que será apagado junto.`);
     ctx.confirm = true; // excluir sempre pede confirmação
     commit(ctx, { op: 'delete', id: b.id, before: clone(b), after: null, summary: `Excluir: ${describe(b)}` });
@@ -1339,7 +1422,7 @@ body.has-timer .chat-drawer { bottom: 270px; }
     const date = isDate(cmd.week) ? cmd.week : C.isoDate(new Date(ctx.nowMs)), week = Cap.weekKey(date);
     const cap = Cap.capacityFor(vstate(ctx), week, ctx.nowMs);
     const lim = cap.limitMin == null ? 'sem limite' : `limite ${C.fmtDur(cap.limitMin * C.MIN)}`;
-    note(ctx, 'capacity', `Semana de ${fmtDay(week)}: ${lim}, planejado ${C.fmtDur(cap.plannedNetMin * C.MIN)}${cap.balanceMin == null ? '' : `, saldo ${C.fmtDur(Math.abs(cap.balanceMin) * C.MIN)}${cap.balanceMin < 0 ? ' (excesso)' : ''}`}.`, { week, capacity: cap });
+    note(ctx, 'capacity', `Semana de ${fmtDay(week)}: ${lim}, planejado ${C.fmtDur(cap.plannedNetMin * C.MIN)}${cap.balanceMin == null ? '' : `, ${cap.balanceMin < 0 ? 'excesso de' : 'saldo'} ${C.fmtDur(Math.abs(cap.balanceMin) * C.MIN)}`}.`, { week, capacity: cap });
   }
 
   function cmdPropose(ctx, i, cmd) {
@@ -1410,7 +1493,7 @@ body.has-timer .chat-drawer { bottom: 270px; }
     const before = week ? ((st.weekOverrides || {})[week] || {}).limitMin : (st.settings || {}).weeklyLimitMin;
     const label = v === null ? 'sem limite' : C.fmtDur(v * C.MIN);
     ctx.changes.push({ op: 'setting', id: `limit:${week || 'padrao'}`, target: week ? { scope: 'week', week } : { scope: 'default' },
-      before: before === undefined ? null : before, after: v, summary: week ? `Limite da semana de ${fmtDay(week)}: ${label}` : `Limite semanal padrão: ${label}` });
+      before: before === undefined ? (week ? { absent: true } : null) : before, after: v, summary: week ? `Limite da semana de ${fmtDay(week)}: ${label}` : `Limite semanal padrão: ${label}` });
     ctx.confirm = true; ctx.mutating++;
   }
 
@@ -1478,7 +1561,10 @@ body.has-timer .chat-drawer { bottom: 270px; }
   }
   function setSetting(s, target, value) {
     if (target.scope === 'week') {
-      s.weekOverrides[target.week] = { ...(s.weekOverrides[target.week] || {}), limitMin: value };
+      if (value && value.absent) { // volta a valer o limite padrão (sem exceção)
+        const cur = { ...(s.weekOverrides[target.week] || {}) }; delete cur.limitMin;
+        if (Object.keys(cur).length) s.weekOverrides[target.week] = cur; else delete s.weekOverrides[target.week];
+      } else s.weekOverrides[target.week] = { ...(s.weekOverrides[target.week] || {}), limitMin: value };
     } else s.settings.weeklyLimitMin = value;
   }
 
@@ -1507,7 +1593,7 @@ body.has-timer .chat-drawer { bottom: 270px; }
         if (errs.length) { fail(ch, 'INVALIDO', errs.join(' ')); continue; }
         const clash = clashWith(a);
         if (clash.length) { fail(ch, 'CONFLITO', `${fmtWhen(a.date, a.start)} agora está ocupado por "${clash[0].title}".`); continue; }
-        s.blocks.push(clone(a)); applied.push(ch);
+        s.blocks.push(Cap.normalizeBlock(clone(a))); applied.push(ch);
       } else if (ch.op === 'update') {
         if (idx < 0) { fail(ch, 'NAO_ENCONTRADO', 'O bloco não existe mais.'); continue; }
         const cur = Cap.normalizeBlock(s.blocks[idx]), keys = changedKeys(ch.before, ch.after);
@@ -1525,7 +1611,8 @@ body.has-timer .chat-drawer { bottom: 270px; }
         s.blocks.splice(idx, 1); applied.push(ch);
       } else if (ch.op === 'setting') {
         const cur = ch.target.scope === 'week' ? (s.weekOverrides[ch.target.week] || {}).limitMin : s.settings.weeklyLimitMin;
-        if ((cur === undefined ? null : cur) !== ch.before) { fail(ch, 'DESATUALIZADO', 'O limite foi alterado depois da proposta.'); continue; }
+        const same = ch.before && ch.before.absent ? cur === undefined : (cur === undefined ? null : cur) === ch.before;
+        if (!same) { fail(ch, 'DESATUALIZADO', 'O limite foi alterado depois da proposta.'); continue; }
         setSetting(s, ch.target, ch.after); applied.push(ch);
       } else fail(ch, 'INVALIDO', `Operação desconhecida: ${ch.op}`);
     }
@@ -1569,7 +1656,8 @@ body.has-timer .chat-drawer { bottom: 270px; }
       }
     }
     const logged = s.changeLog.find((c) => c.id === set.id);
-    logged.undone = true; logged.undoneAt = Date.now();
+    if (failed.length) { logged.ops = failed.map((f) => f.op); logged.partial = true; } // o que não voltou continua desfazível depois
+    else { logged.undone = true; logged.undoneAt = Date.now(); }
     return { state: s, undone: logged, reverted, failed };
   }
 
@@ -1722,7 +1810,8 @@ body.has-timer .chat-drawer { bottom: 270px; }
     const focus = s.settings.config.focusMin;
 
     // A) pendências atrasadas que ainda não têm novo horário.
-    const pending = s.blocks.filter((b) => !b.completed && b.date <= weekEnd && Core.blockStatus(b, now) === 'atrasado' && Cap.remainingMin(b) > 0)
+    const hasFollowUp = (b) => s.blocks.some((o) => o.id !== b.id && !o.completed && o.date > b.date && o.subject === b.subject && o.title === b.title);
+    const pending = s.blocks.filter((b) => !b.completed && b.date <= weekEnd && Core.blockStatus(b, now) === 'atrasado' && Cap.remainingMin(b) > 0 && !hasFollowUp(b))
       .sort((a, b) => rank(a.priority) - rank(b.priority) || a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
     const cands = pending.map((b) => {
       const rem = Cap.remainingMin(b), poms = Math.max(1, Math.ceil(rem / b.config.focusMin));
@@ -1882,7 +1971,7 @@ body.has-timer .chat-drawer { bottom: 270px; }
       if (busy) return;
       const res = K.undoLast(api.getState());
       if (!res.undone) { const m = 'Não há alteração do chat para desfazer.'; log('system', m); bubble('system', m); return; }
-      const lines = [`Desfeito: ${res.undone.summary}`, ...res.failed.map((f) => `• Não revertido: ${f.reason}`)];
+      const lines = [`${res.failed.length ? 'Desfeito parcialmente' : 'Desfeito'}: ${res.undone.summary}`, ...res.failed.map((f) => `• Não revertido: ${f.reason}`)];
       const text = lines.join('\n');
       log('system', text);
       try { api.setState(persist(res.state)); } catch (e) { msgs.pop(); const m = 'Não consegui salvar; nada foi desfeito.'; log('system', m); bubble('system', m); return; }
@@ -2004,13 +2093,14 @@ body.has-timer .chat-drawer { bottom: 270px; }
 
   /* ---------- estado e persistência ---------- */
   const fresh = () => K.normalizeState({ settings: { config: { ...C.DEFAULT_CONFIG } }, blocks: [], session: null });
+  let loadNotice = '';
   function load() {
-    try {
-      const r = JSON.parse(localStorage.getItem(KEY));
-      if (r && Array.isArray(r.blocks)) {
-        return K.normalizeState(r);
-      }
-    } catch (e) { /* storage indisponível ou corrompido */ }
+    let raw = null;
+    try { raw = localStorage.getItem(KEY); } catch (e) { /* storage indisponível */ }
+    if (!raw) return fresh();
+    try { const r = JSON.parse(raw); if (r && typeof r === 'object') return K.normalizeState(r); } catch (e) { /* ilegível: cai para a cópia de segurança */ }
+    try { if (!localStorage.getItem(KEY + '.corrompido')) localStorage.setItem(KEY + '.corrompido', raw); } catch (e) { /* sem espaço */ }
+    loadNotice = 'Os dados salvos estavam ilegíveis. Guardei uma cópia de segurança (chave "estudy.mvp.v1.corrompido" no navegador) e comecei do zero.';
     return fresh();
   }
   let state = load();
@@ -2122,6 +2212,20 @@ body.has-timer .chat-drawer { bottom: 270px; }
       (c.warnings.length ? `<div class="cap-warn">${c.warnings.map((w) => `⚠ ${esc(WARN[w])}`).join('<br>')}</div>` : '');
   }
 
+  /** Blocos que se sobrepõem ficam lado a lado (colunas) em vez de um cobrir o outro. */
+  function layoutDay(blocks) {
+    const items = blocks.map((b) => { const sp = C.blockSpan(b); return { id: b.id, s: sp.startMin, e: sp.endMin }; }).sort((a, b) => a.s - b.s || a.e - b.e);
+    const out = {}; let group = [], groupEnd = -1;
+    const flush = () => { const cols = Math.max(1, ...group.map((g) => g.col + 1)); group.forEach((g) => { out[g.id] = { col: g.col, cols }; }); group = []; };
+    for (const it of items) {
+      if (group.length && it.s >= groupEnd) { flush(); groupEnd = -1; }
+      const used = new Set(group.filter((g) => g.e > it.s).map((g) => g.col)); let col = 0; while (used.has(col)) col++;
+      group.push({ ...it, col }); groupEnd = Math.max(groupEnd, it.e);
+    }
+    if (group.length) flush();
+    return out;
+  }
+
   function renderCalendar() {
     const now = new Date(), nowMs = now.getTime();
     const days = [...Array(7)].map((_, i) => C.addDays(ui.weekStart, i));
@@ -2158,7 +2262,8 @@ body.has-timer .chat-drawer { bottom: 270px; }
     html += `<div class="gutter" style="height:${(24 - hStart) * HPX}px">${[...Array(24 - hStart)].map((_, i) => `<span style="top:${i * HPX}px">${C.pad(hStart + i)}:00</span>`).join('')}</div>`;
     days.forEach((d, i) => {
       html += `<div class="col${iso[i] === todayIso ? ' today' : ''}" data-date="${iso[i]}" data-hstart="${hStart}" style="height:${(24 - hStart) * HPX}px">`;
-      for (const b of wb.filter((x) => x.date === iso[i])) html += blockHtml(b, hStart, now, conflicts[b.id]);
+      const dayBlocks = wb.filter((x) => x.date === iso[i]), lay = layoutDay(dayBlocks);
+      for (const b of dayBlocks) html += blockHtml(b, hStart, now, conflicts[b.id], lay[b.id]);
       if (iso[i] === todayIso) {
         const nm = now.getHours() * 60 + now.getMinutes();
         if (nm >= hStart * 60) html += `<div class="now-line" style="top:${((nm - hStart * 60) / 60) * HPX}px"></div>`;
@@ -2168,14 +2273,16 @@ body.has-timer .chat-drawer { bottom: 270px; }
     $('#calendar').innerHTML = html + '</div>';
   }
 
-  function blockHtml(b, hStart, now, conflict) {
+  function blockHtml(b, hStart, now, conflict, lay) {
     const sp = C.blockSpan(b), st = C.blockStatus(b, now);
     const active = state.session && state.session.blockId === b.id;
     const height = Math.max(30, (sp.totalMin / 60) * HPX - 2);
     const tip = [`${b.subject} — ${b.title}`, `${b.start}–${C.fromMin(sp.endMin)}`,
       `Estudo ${dur(sp.studyMin * C.MIN)} + descanso ${dur(sp.restMin * C.MIN)}`, `Situação: ${C.STATUS_LABEL[st]}`, ...(conflict || [])].join('\n');
-    return `<div class="block st-${st}${conflict ? ' conflict' : ''}${active ? ' active' : ''}" draggable="true" data-id="${b.id}" title="${esc(tip)}"
-      style="top:${((sp.startMin - hStart * 60) / 60) * HPX}px;height:${height}px">
+    const L = lay || { col: 0, cols: 1 };
+    return `<div class="block st-${st}${conflict ? ' conflict' : ''}${active ? ' active' : ''}" draggable="true" data-id="${esc(b.id)}" title="${esc(tip)}"
+      tabindex="0" role="button" aria-label="${esc(`${b.subject}, ${b.title}, ${b.start} às ${C.fromMin(sp.endMin)}, ${C.STATUS_LABEL[st]}${conflict ? ', com conflito' : ''}`)}"
+      style="top:${((sp.startMin - hStart * 60) / 60) * HPX}px;height:${height}px;left:calc(${(L.col / L.cols) * 100}% + 3px);right:auto;width:calc(${100 / L.cols}% - 6px)">
       <b>${esc(b.subject)} · ${esc(b.title)}</b>
       <span class="meta">${b.start}–${C.fromMin(sp.endMin)} · 🍅 ${b.estimated}</span>
       <span class="tag">${C.STATUS_LABEL[st]}</span>${active ? ' <span class="tag run">● Em andamento</span>' : ''}${conflict ? ' <span class="tag warn">⚠ Conflito</span>' : ''}
@@ -2184,6 +2291,10 @@ body.has-timer .chat-drawer { bottom: 270px; }
 
   function bindCalendar() {
     const cal = $('#calendar');
+    cal.addEventListener('keydown', (e) => {
+      const blk = e.target.closest && e.target.closest('.block');
+      if (blk && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openBlockDialog({ id: blk.dataset.id }); }
+    });
     cal.addEventListener('click', (e) => {
       const blk = e.target.closest('.block');
       if (blk) return openBlockDialog({ id: blk.dataset.id });
@@ -2209,13 +2320,30 @@ body.has-timer .chat-drawer { bottom: 270px; }
       const col = e.target.closest('.col');
       if (!col || !ui.drag) return;
       e.preventDefault();
-      const b = blockById(ui.drag.id), total = C.blockSpan(b).totalMin;
+      const b = blockById(ui.drag.id);
+      if (!b) { ui.drag = null; render(); return; }
+      const total = C.blockSpan(b).totalMin;
       const y = e.clientY - col.getBoundingClientRect().top - ui.drag.grab;
       let min = Math.round((Number(col.dataset.hstart) * 60 + (y / HPX) * 60) / 15) * 15;
       min = Math.max(0, Math.min(min, 1440 - total));
-      b.date = col.dataset.date; b.start = C.fromMin(min);
-      ui.drag = null; save(); renderCalendar();
+      const nd = col.dataset.date, ns = C.fromMin(min);
+      ui.drag = null;
+      if (!confirmMove(b, nd, ns)) { renderCalendar(); return; }
+      b.date = nd; b.start = ns; save(); renderCalendar();
     });
+  }
+
+  /** Arrastar também respeita conflito, bloco concluído e limite semanal (mesmas proteções do chat). */
+  function confirmMove(b, date, start) {
+    const draft = { ...b, date, start }, issues = [];
+    if (b.completed) issues.push(`"${b.title}" já está concluído.`);
+    if (b.fixed) issues.push(`"${b.title}" tem horário obrigatório.`);
+    const clash = state.blocks.filter((o) => o.id !== b.id && o.date === date && (() => { const a = C.toMin(o.start), e = a + C.blockSpan(o).totalMin, s0 = C.toMin(start), e0 = s0 + C.blockSpan(b).totalMin; return s0 < e && a < e0; })());
+    if (clash.length) issues.push(`O horário fica sobreposto a ${clash.map((o) => `"${o.title}"`).join(', ')}.`);
+    const wk = K.weekKey(date), now = Date.now();
+    const before = K.capacityFor(state, wk, now), after = K.capacityFor({ ...state, blocks: state.blocks.map((o) => (o.id === b.id ? draft : o)) }, wk, now);
+    if (after.excessMin > before.excessMin) issues.push(`A carga da semana passa a ultrapassar o limite em ${dur(after.excessMin * C.MIN)}.`);
+    return !issues.length || confirm(`Mover "${b.title}" para ${date} ${start}?\n\n${issues.map((x) => '• ' + x).join('\n')}\n\nMover mesmo assim?`);
   }
 
   /* ---------- diálogo do bloco (cadastro, detalhes e execução) ---------- */
@@ -2245,16 +2373,16 @@ body.has-timer .chat-drawer { bottom: 270px; }
       <fieldset><legend>Planejamento</legend><div class="form-grid">
         <label>Matéria *<input name="subject" list="subjects" value="${esc(v.subject)}" required></label>
         <label>Assunto / título *<input name="title" value="${esc(v.title)}" required></label>
-        <label>Dia *<input type="date" name="date" value="${v.date}" required></label>
-        <label>Início *<input type="time" name="start" value="${v.start}" required></label>
+        <label>Dia *<input type="date" name="date" value="${esc(v.date)}" required></label>
+        <label>Início *<input type="time" name="start" value="${esc(v.start)}" required></label>
         <label>Pomodoros estimados *<input type="number" name="estimated" min="1" step="1" value="${v.estimated}" required></label>
         <label>PDF (nome ou link)<input name="pdf" value="${esc(v.pdf)}"></label>
         <label>Páginas / trecho previsto<input name="pages" value="${esc(v.pages)}"></label>
         <label>Tipo<select name="kind"><option value="estudo"${v.kind === 'estudo' ? ' selected' : ''}>Estudo</option><option value="revisao"${v.kind === 'revisao' ? ' selected' : ''}>Revisão</option></select></label>
         <label>Prioridade<select name="priority"><option value="">—</option>${[['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, l]) => `<option value="${k}"${v.priority === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-        <label>Prazo (opcional)<input type="date" name="deadline" value="${v.deadline || ''}"></label>
+        <label>Prazo (opcional)<input type="date" name="deadline" value="${esc(v.deadline || '')}"></label>
         <label class="check"><input type="checkbox" name="fixed"${v.fixed ? ' checked' : ''}> Horário obrigatório (não mover automaticamente)</label>
-        ${b ? `<label>Restante previsto (min de estudo)<input name="remaining" inputmode="numeric" placeholder="automático" value="${v.remainingMin ?? ''}"></label>` : ''}
+        ${b ? `<label>Restante previsto (min de estudo)<input name="remaining" inputmode="numeric" placeholder="automático" value="${esc(v.remainingMin ?? '')}"></label>` : ''}
       </div>
       <datalist id="subjects">${subjects.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
       <details style="margin-top:8px"><summary>Pomodoro deste bloco (copiado do padrão; ajuste se precisar)</summary><div class="form-grid" style="margin-top:8px">
@@ -2267,8 +2395,8 @@ body.has-timer .chat-drawer { bottom: 270px; }
       <div class="preview" id="plan-preview"></div><div class="preview" id="cap-preview"></div></fieldset>
       ${b ? `<fieldset><legend>Execução</legend><div class="form-grid">
         <label class="wide">Conteúdo / páginas efetivamente estudados<input name="studied" value="${esc(v.studied)}"></label>
-        <label>Questões respondidas<input name="questions" inputmode="numeric" value="${v.questions ?? ''}"></label>
-        <label>Acertos<input name="hits" inputmode="numeric" value="${v.hits ?? ''}"></label>
+        <label>Questões respondidas<input name="questions" inputmode="numeric" value="${esc(v.questions ?? '')}"></label>
+        <label>Acertos<input name="hits" inputmode="numeric" value="${esc(v.hits ?? '')}"></label>
         <div class="field">Erros / Taxa de acerto<b id="res-calc"></b></div>
         <label class="wide">Observações (dificuldades, conteúdo pendente)<textarea name="notes" rows="3">${esc(v.notes)}</textarea></label></div>
         <div class="preview"><b>Realizado:</b> foco regular ${dur(real.focusMs)} + extra ${dur(real.extraMs)} = <b>${dur(real.studyMs)}</b> estudados
@@ -2345,9 +2473,12 @@ body.has-timer .chat-drawer { bottom: 270px; }
       return errs.length ? null : data;
     };
     const commit = (data) => {
-      if (b) Object.assign(b, data);
-      else state.blocks.push(K.normalizeBlock({ id: uid(), completed: false, sessions: [], studied: '', questions: null, hits: null, notes: '', reviewOf: v.reviewOf || null, ...data }));
-      save();
+      if (b) {
+        const cur = blockById(b.id); // o estado pode ter sido trocado por outra aba enquanto o diálogo estava aberto
+        if (!cur) { alert('Este bloco foi excluído em outra aba; nada foi salvo.'); return false; }
+        Object.assign(cur, data);
+      } else state.blocks.push(K.normalizeBlock({ id: uid(), completed: false, sessions: [], studied: '', questions: null, hits: null, notes: '', reviewOf: v.reviewOf || null, ...data }));
+      save(); return true;
     };
     form.addEventListener('input', refresh);
     $('#use-default', dlg).onclick = () => { Object.entries(state.settings.config).forEach(([k, val]) => { form.elements[k].value = val; }); refresh(); };
@@ -2361,7 +2492,8 @@ body.has-timer .chat-drawer { bottom: 270px; }
       };
       $('#b-toggle', dlg).onclick = () => {
         const d = collect(); if (!d) return;
-        Object.assign(d, { completed: !b.completed, completedAt: b.completed ? null : Date.now() });
+        const cur0 = blockById(b.id) || b;
+        Object.assign(d, { completed: !cur0.completed, completedAt: cur0.completed ? null : Date.now() });
         commit(d); dlg.close(); render();
       };
       const rv = $('#b-review', dlg);
@@ -2430,7 +2562,8 @@ body.has-timer .chat-drawer { bottom: 270px; }
       else buttons = btn('pause', '⏸ Pausar') + (focusLike ? btn('break', `☕ Iniciar pausa ${kind}`) : btn('focus', 'Pular pausa e iniciar foco'));
       buttons += btn('finish', '⏹ Encerrar', 'danger') + btn('open', 'Bloco');
       el.className = `timer ${s.phase === 'extra' ? 'extra' : brk ? 'rest' : ''}`;
-      el.innerHTML = `<div class="muted" id="t-block"></div><div class="phase" id="t-phase"></div><div class="clock" id="t-clock"></div>
+      el.setAttribute('aria-label', 'Cronômetro de estudo');
+      el.innerHTML = `<div class="muted" id="t-block"></div><div class="phase" id="t-phase" role="status" aria-live="polite"></div><div class="clock" id="t-clock"></div>
         <div class="row">${buttons}</div><div class="info" id="t-info"></div>`;
       $('#t-block', el).textContent = `${b.subject} — ${b.title}`;
     }
@@ -2465,7 +2598,7 @@ body.has-timer .chat-drawer { bottom: 270px; }
       <p class="muted">O limite conta só tempo de <b>estudo</b> (sem pausas). Não é meta de preenchimento. Exceções de uma semana ficam em "Semana" no calendário e não alteram esta rotina.</p>
       <div class="form-grid"><label>Limite semanal de estudo (horas líquidas; vazio = sem limite)<input name="limitH" inputmode="decimal" value="${minToHours(state.settings.weeklyLimitMin)}"></label>
         <label>Fechamento do relatório semanal<select name="closeDay">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<option value="${d}"${cl.day === d ? ' selected' : ''}>${WD[d]}</option>`).join('')}</select></label>
-        <label>Horário do fechamento<input type="time" name="closeTime" value="${cl.time}"></label></div>
+        <label>Horário do fechamento<input type="time" name="closeTime" value="${esc(cl.time)}"></label></div>
       <p class="muted" style="margin-top:10px">Faixas de estudo por dia (ex.: 08:00-12:00, 14:00-18:00). Vazio = dia indisponível.</p>
       <div class="form-grid">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<label>${WD[d]}<input name="day${d}" placeholder="indisponível" value="${esc(fmtRanges(av.days[d]))}"></label>`).join('')}</div>
       <label class="field" style="margin-top:10px">Períodos indisponíveis (um por linha: "3 12:00-14:00 Almoço" repete toda quarta; "2026-10-15 09:00-10:00 Consulta" só naquele dia)
@@ -2552,7 +2685,8 @@ body.has-timer .chat-drawer { bottom: 270px; }
   const rate = (g) => (g.rate !== null ? g.rate.toFixed(1).replace('.', ',') + '%' : (g.pendingResults ? 'Resultado pendente' : 'Sem questões registradas'));
   function renderReports() {
     const sel = $('#f-subject'), cur = sel.value;
-    sel.innerHTML = '<option value="">Todas</option>' + [...new Set(state.blocks.map((b) => b.subject))].sort().map((s) => `<option${s === cur ? ' selected' : ''}>${esc(s)}</option>`).join('');
+    sel.innerHTML = '<option value="">Todas</option>' + [...new Set(state.blocks.map((b) => b.subject))].sort().map((s) => `<option>${esc(s)}</option>`).join('');
+    sel.value = cur; // sem atributo "selected": assim o botão Limpar volta para "Todas"
     const opts = { subject: sel.value, from: $('#f-from').value, to: $('#f-to').value, groupBy: $('#f-group').value };
     const now = new Date(), r = C.consolidate(state.blocks, opts, now, state.session);
     if (!r.blocks.length) { $('#report').innerHTML = '<p class="muted">Nenhum bloco encontrado para os filtros escolhidos.</p>'; return; }
@@ -2579,7 +2713,7 @@ body.has-timer .chat-drawer { bottom: 270px; }
       <thead><tr><th class="l">Dia</th><th class="l">Bloco</th><th>Situação</th><th>Previsto</th><th>Estudado</th><th>Extra</th><th>Questões</th><th>Acertos</th><th>Taxa</th></tr></thead><tbody>
       ${g.blocks.slice().sort((a, b) => (a.date + a.start < b.date + b.start ? -1 : 1)).map((b) => {
         const sp = C.blockSpan(b), re = C.blockRealized(b, state.session, now.getTime()), a = C.accuracy(b), st = C.blockStatus(b, now);
-        return `<tr><td class="l">${C.parseDate(b.date).toLocaleDateString('pt-BR')} ${b.start}</td><td class="l"><a href="#" data-open-block="${b.id}">${esc(b.subject)} – ${esc(b.title)}</a></td>
+        return `<tr><td class="l">${C.parseDate(b.date).toLocaleDateString('pt-BR')} ${b.start}</td><td class="l"><a href="#" data-open-block="${esc(b.id)}">${esc(b.subject)} – ${esc(b.title)}</a></td>
           <td><span class="chip st-${st}">${C.STATUS_LABEL[st]}</span></td><td>${dur(sp.studyMin * C.MIN)}</td><td>${dur(re.studyMs)}</td><td>${dur(re.extraMs)}</td>
           <td>${b.questions ?? '—'}</td><td>${b.hits ?? '—'}</td><td>${a.label}</td></tr>`;
       }).join('')}</tbody></table></div></details>`).join('');
@@ -2603,17 +2737,31 @@ body.has-timer .chat-drawer { bottom: 270px; }
     save();
     $('#tab-weekly').textContent = 'Relatório semanal ●';
   }
-  function applySuggestion(sg) {
-    const plan = window.Commands.plan(state, sg.commands, Date.now());
-    if (plan.status === 'needs_clarification' || !plan.changes.length) {
-      alert('Não consegui aplicar automaticamente:\n' + ((plan.questions || []).map((q) => '• ' + q.text).join('\n') || (plan.warnings || []).map((x) => '• ' + x.text).join('\n') || 'Nenhuma alteração possível.'));
+  /** Planeja os comandos, mostra o que muda e só grava após confirmação. */
+  function applyCommandsWithConfirm(commands, title, reason) {
+    const plan = window.Commands.plan(state, commands, Date.now());
+    if (plan.status === 'needs_clarification') {
+      const q = (plan.questions || []).find((x) => x.options && x.options.length);
+      if (q) { pickOption(q, title, reason); return; }
+      alert('Preciso de mais informação:\n' + (plan.questions || []).map((x) => '• ' + x.text).join('\n'));
       return;
     }
-    if (!confirm(`${sg.text}\n\nMotivo: ${sg.reason}\n\nAlterações que serão feitas:\n${plan.changes.map((c) => '• ' + c.summary).join('\n')}\n\nAplicar no calendário?`)) return;
-    const res = window.Commands.applyChanges(state, plan.changes, { source: 'chat', summary: sg.text, nowMs: Date.now() });
+    if (!plan.changes.length) { alert('Nada a alterar:\n' + ((plan.warnings || []).map((x) => '• ' + x.text).join('\n') || 'nenhuma alteração possível.')); return; }
+    if (!confirm(`${title}${reason ? `\n\nMotivo: ${reason}` : ''}\n\nAlterações que serão feitas:\n${plan.changes.map((c) => '• ' + c.summary).join('\n')}\n\nAplicar no calendário?`)) return;
+    const res = window.Commands.applyChanges(state, plan.changes, { source: 'chat', summary: title, nowMs: Date.now() });
     if (res.applied.length) { state = K.normalizeState(res.state); save(); render(); }
     alert(res.applied.length ? `${res.applied.length} alteração(ões) salva(s).${res.failed.length ? '\nNão aplicadas:\n' + res.failed.map((f) => '• ' + f.reason).join('\n') : ''}` : 'Nada foi alterado:\n' + res.failed.map((f) => '• ' + f.reason).join('\n'));
   }
+  /** Quando há escolha a fazer (ex.: horário da revisão), mostra as opções como botões. */
+  function pickOption(q, title, reason) {
+    const dlg = $('#dlg-pick');
+    dlg.innerHTML = `<form method="dialog"><h3>${esc(title)}</h3><p>${esc(q.text)}</p><div class="actions" style="justify-content:flex-start">${q.options.map((o, i) => `<button type="button" data-o="${i}" class="primary">${esc(o.label)}</button>`).join('')}</div>
+      <div class="actions"><button type="button" id="pick-cancel">Cancelar</button></div></form>`;
+    $('#pick-cancel', dlg).onclick = () => dlg.close();
+    dlg.querySelectorAll('[data-o]').forEach((b) => { b.onclick = () => { const o = q.options[Number(b.dataset.o)]; dlg.close(); if (o.commands) applyCommandsWithConfirm(o.commands, title, reason); }; });
+    dlg.showModal();
+  }
+  function applySuggestion(sg) { applyCommandsWithConfirm(sg.commands, sg.text, sg.reason); }
   function renderWeekly() {
     const el = $('#weekly'), sel = $('#w-week');
     if (!W) { el.textContent = 'Módulo de relatório indisponível.'; return; }
@@ -2656,7 +2804,7 @@ body.has-timer .chat-drawer { bottom: 270px; }
     ui.view = v;
     $('#view-calendar').hidden = v !== 'calendar'; $('#view-reports').hidden = v !== 'reports'; $('#view-weekly').hidden = v !== 'weekly';
     if (v === 'weekly') $('#tab-weekly').textContent = 'Relatório semanal';
-    document.querySelectorAll('[data-view]').forEach((t) => t.classList.toggle('active', t.dataset.view === v));
+    document.querySelectorAll('[data-view]').forEach((t) => { t.classList.toggle('active', t.dataset.view === v); t.setAttribute('aria-pressed', String(t.dataset.view === v)); });
     render();
   }
   function render() {
@@ -2669,12 +2817,13 @@ body.has-timer .chat-drawer { bottom: 270px; }
     const s = state.session;
     if (s && C.advance(s, Date.now())) { save(); handleAlert(); render(); return; }
     renderTimer();
-    const key = new Date().toISOString().slice(0, 16);
+    const key = Math.floor(Date.now() / (state.session ? 10000 : 60000)); // com cronômetro, o painel de capacidade acompanha a cada 10 s
     if (key !== ui.minuteKey && !ui.drag && !document.querySelector('dialog[open]')) { ui.minuteKey = key; render(); }
   }
 
   document.addEventListener('click', (e) => {
     unlockAudio();
+    if (ui.soundNotice && !e.target.closest('#banner-close')) { ui.soundNotice = false; $('#alert-banner').hidden = true; }
     const a = e.target.closest('[data-act]'); if (a && a.closest('#timer')) timerAction(a.dataset.act);
     if (e.target.id === 'banner-close') $('#alert-banner').hidden = true;
     const ob = e.target.closest('[data-open-block]'); if (ob) { e.preventDefault(); openBlockDialog({ id: ob.dataset.openBlock }); }
@@ -2789,6 +2938,16 @@ body.has-timer .chat-drawer { bottom: 270px; }
     }
   }
   $('#btn-chat').addEventListener('click', toggleChat);
+  /** Faixa de aviso reaproveitando #alert-banner. */
+  function showNotice(text, soundHint) {
+    const el = $('#alert-banner'); el.textContent = '';
+    const sp = document.createElement('span'); sp.textContent = text;
+    const bt = document.createElement('button'); bt.id = 'banner-close'; bt.textContent = 'Entendi';
+    el.append(sp, bt); el.hidden = false; ui.soundNotice = !!soundHint;
+  }
+  if (loadNotice) showNotice(loadNotice);
+  else if (state.quarantine && state.quarantine.length) showNotice(`${state.quarantine.length} bloco(s) com dados inválidos foram guardados à parte (não aparecem no calendário, mas não foram apagados).`);
+  else if (state.session) showNotice('Há um cronômetro em andamento. Clique em qualquer lugar da página para ativar o som dos alertas.', true);
   autoGenerateReport();
   bindCalendar();
   render();

@@ -13,13 +13,14 @@
 
   /* ---------- estado e persistência ---------- */
   const fresh = () => K.normalizeState({ settings: { config: { ...C.DEFAULT_CONFIG } }, blocks: [], session: null });
+  let loadNotice = '';
   function load() {
-    try {
-      const r = JSON.parse(localStorage.getItem(KEY));
-      if (r && Array.isArray(r.blocks)) {
-        return K.normalizeState(r);
-      }
-    } catch (e) { /* storage indisponível ou corrompido */ }
+    let raw = null;
+    try { raw = localStorage.getItem(KEY); } catch (e) { /* storage indisponível */ }
+    if (!raw) return fresh();
+    try { const r = JSON.parse(raw); if (r && typeof r === 'object') return K.normalizeState(r); } catch (e) { /* ilegível: cai para a cópia de segurança */ }
+    try { if (!localStorage.getItem(KEY + '.corrompido')) localStorage.setItem(KEY + '.corrompido', raw); } catch (e) { /* sem espaço */ }
+    loadNotice = 'Os dados salvos estavam ilegíveis. Guardei uma cópia de segurança (chave "estudy.mvp.v1.corrompido" no navegador) e comecei do zero.';
     return fresh();
   }
   let state = load();
@@ -131,6 +132,20 @@
       (c.warnings.length ? `<div class="cap-warn">${c.warnings.map((w) => `⚠ ${esc(WARN[w])}`).join('<br>')}</div>` : '');
   }
 
+  /** Blocos que se sobrepõem ficam lado a lado (colunas) em vez de um cobrir o outro. */
+  function layoutDay(blocks) {
+    const items = blocks.map((b) => { const sp = C.blockSpan(b); return { id: b.id, s: sp.startMin, e: sp.endMin }; }).sort((a, b) => a.s - b.s || a.e - b.e);
+    const out = {}; let group = [], groupEnd = -1;
+    const flush = () => { const cols = Math.max(1, ...group.map((g) => g.col + 1)); group.forEach((g) => { out[g.id] = { col: g.col, cols }; }); group = []; };
+    for (const it of items) {
+      if (group.length && it.s >= groupEnd) { flush(); groupEnd = -1; }
+      const used = new Set(group.filter((g) => g.e > it.s).map((g) => g.col)); let col = 0; while (used.has(col)) col++;
+      group.push({ ...it, col }); groupEnd = Math.max(groupEnd, it.e);
+    }
+    if (group.length) flush();
+    return out;
+  }
+
   function renderCalendar() {
     const now = new Date(), nowMs = now.getTime();
     const days = [...Array(7)].map((_, i) => C.addDays(ui.weekStart, i));
@@ -167,7 +182,8 @@
     html += `<div class="gutter" style="height:${(24 - hStart) * HPX}px">${[...Array(24 - hStart)].map((_, i) => `<span style="top:${i * HPX}px">${C.pad(hStart + i)}:00</span>`).join('')}</div>`;
     days.forEach((d, i) => {
       html += `<div class="col${iso[i] === todayIso ? ' today' : ''}" data-date="${iso[i]}" data-hstart="${hStart}" style="height:${(24 - hStart) * HPX}px">`;
-      for (const b of wb.filter((x) => x.date === iso[i])) html += blockHtml(b, hStart, now, conflicts[b.id]);
+      const dayBlocks = wb.filter((x) => x.date === iso[i]), lay = layoutDay(dayBlocks);
+      for (const b of dayBlocks) html += blockHtml(b, hStart, now, conflicts[b.id], lay[b.id]);
       if (iso[i] === todayIso) {
         const nm = now.getHours() * 60 + now.getMinutes();
         if (nm >= hStart * 60) html += `<div class="now-line" style="top:${((nm - hStart * 60) / 60) * HPX}px"></div>`;
@@ -177,14 +193,16 @@
     $('#calendar').innerHTML = html + '</div>';
   }
 
-  function blockHtml(b, hStart, now, conflict) {
+  function blockHtml(b, hStart, now, conflict, lay) {
     const sp = C.blockSpan(b), st = C.blockStatus(b, now);
     const active = state.session && state.session.blockId === b.id;
     const height = Math.max(30, (sp.totalMin / 60) * HPX - 2);
     const tip = [`${b.subject} — ${b.title}`, `${b.start}–${C.fromMin(sp.endMin)}`,
       `Estudo ${dur(sp.studyMin * C.MIN)} + descanso ${dur(sp.restMin * C.MIN)}`, `Situação: ${C.STATUS_LABEL[st]}`, ...(conflict || [])].join('\n');
-    return `<div class="block st-${st}${conflict ? ' conflict' : ''}${active ? ' active' : ''}" draggable="true" data-id="${b.id}" title="${esc(tip)}"
-      style="top:${((sp.startMin - hStart * 60) / 60) * HPX}px;height:${height}px">
+    const L = lay || { col: 0, cols: 1 };
+    return `<div class="block st-${st}${conflict ? ' conflict' : ''}${active ? ' active' : ''}" draggable="true" data-id="${esc(b.id)}" title="${esc(tip)}"
+      tabindex="0" role="button" aria-label="${esc(`${b.subject}, ${b.title}, ${b.start} às ${C.fromMin(sp.endMin)}, ${C.STATUS_LABEL[st]}${conflict ? ', com conflito' : ''}`)}"
+      style="top:${((sp.startMin - hStart * 60) / 60) * HPX}px;height:${height}px;left:calc(${(L.col / L.cols) * 100}% + 3px);right:auto;width:calc(${100 / L.cols}% - 6px)">
       <b>${esc(b.subject)} · ${esc(b.title)}</b>
       <span class="meta">${b.start}–${C.fromMin(sp.endMin)} · 🍅 ${b.estimated}</span>
       <span class="tag">${C.STATUS_LABEL[st]}</span>${active ? ' <span class="tag run">● Em andamento</span>' : ''}${conflict ? ' <span class="tag warn">⚠ Conflito</span>' : ''}
@@ -193,6 +211,10 @@
 
   function bindCalendar() {
     const cal = $('#calendar');
+    cal.addEventListener('keydown', (e) => {
+      const blk = e.target.closest && e.target.closest('.block');
+      if (blk && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openBlockDialog({ id: blk.dataset.id }); }
+    });
     cal.addEventListener('click', (e) => {
       const blk = e.target.closest('.block');
       if (blk) return openBlockDialog({ id: blk.dataset.id });
@@ -218,13 +240,30 @@
       const col = e.target.closest('.col');
       if (!col || !ui.drag) return;
       e.preventDefault();
-      const b = blockById(ui.drag.id), total = C.blockSpan(b).totalMin;
+      const b = blockById(ui.drag.id);
+      if (!b) { ui.drag = null; render(); return; }
+      const total = C.blockSpan(b).totalMin;
       const y = e.clientY - col.getBoundingClientRect().top - ui.drag.grab;
       let min = Math.round((Number(col.dataset.hstart) * 60 + (y / HPX) * 60) / 15) * 15;
       min = Math.max(0, Math.min(min, 1440 - total));
-      b.date = col.dataset.date; b.start = C.fromMin(min);
-      ui.drag = null; save(); renderCalendar();
+      const nd = col.dataset.date, ns = C.fromMin(min);
+      ui.drag = null;
+      if (!confirmMove(b, nd, ns)) { renderCalendar(); return; }
+      b.date = nd; b.start = ns; save(); renderCalendar();
     });
+  }
+
+  /** Arrastar também respeita conflito, bloco concluído e limite semanal (mesmas proteções do chat). */
+  function confirmMove(b, date, start) {
+    const draft = { ...b, date, start }, issues = [];
+    if (b.completed) issues.push(`"${b.title}" já está concluído.`);
+    if (b.fixed) issues.push(`"${b.title}" tem horário obrigatório.`);
+    const clash = state.blocks.filter((o) => o.id !== b.id && o.date === date && (() => { const a = C.toMin(o.start), e = a + C.blockSpan(o).totalMin, s0 = C.toMin(start), e0 = s0 + C.blockSpan(b).totalMin; return s0 < e && a < e0; })());
+    if (clash.length) issues.push(`O horário fica sobreposto a ${clash.map((o) => `"${o.title}"`).join(', ')}.`);
+    const wk = K.weekKey(date), now = Date.now();
+    const before = K.capacityFor(state, wk, now), after = K.capacityFor({ ...state, blocks: state.blocks.map((o) => (o.id === b.id ? draft : o)) }, wk, now);
+    if (after.excessMin > before.excessMin) issues.push(`A carga da semana passa a ultrapassar o limite em ${dur(after.excessMin * C.MIN)}.`);
+    return !issues.length || confirm(`Mover "${b.title}" para ${date} ${start}?\n\n${issues.map((x) => '• ' + x).join('\n')}\n\nMover mesmo assim?`);
   }
 
   /* ---------- diálogo do bloco (cadastro, detalhes e execução) ---------- */
@@ -254,16 +293,16 @@
       <fieldset><legend>Planejamento</legend><div class="form-grid">
         <label>Matéria *<input name="subject" list="subjects" value="${esc(v.subject)}" required></label>
         <label>Assunto / título *<input name="title" value="${esc(v.title)}" required></label>
-        <label>Dia *<input type="date" name="date" value="${v.date}" required></label>
-        <label>Início *<input type="time" name="start" value="${v.start}" required></label>
+        <label>Dia *<input type="date" name="date" value="${esc(v.date)}" required></label>
+        <label>Início *<input type="time" name="start" value="${esc(v.start)}" required></label>
         <label>Pomodoros estimados *<input type="number" name="estimated" min="1" step="1" value="${v.estimated}" required></label>
         <label>PDF (nome ou link)<input name="pdf" value="${esc(v.pdf)}"></label>
         <label>Páginas / trecho previsto<input name="pages" value="${esc(v.pages)}"></label>
         <label>Tipo<select name="kind"><option value="estudo"${v.kind === 'estudo' ? ' selected' : ''}>Estudo</option><option value="revisao"${v.kind === 'revisao' ? ' selected' : ''}>Revisão</option></select></label>
         <label>Prioridade<select name="priority"><option value="">—</option>${[['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, l]) => `<option value="${k}"${v.priority === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-        <label>Prazo (opcional)<input type="date" name="deadline" value="${v.deadline || ''}"></label>
+        <label>Prazo (opcional)<input type="date" name="deadline" value="${esc(v.deadline || '')}"></label>
         <label class="check"><input type="checkbox" name="fixed"${v.fixed ? ' checked' : ''}> Horário obrigatório (não mover automaticamente)</label>
-        ${b ? `<label>Restante previsto (min de estudo)<input name="remaining" inputmode="numeric" placeholder="automático" value="${v.remainingMin ?? ''}"></label>` : ''}
+        ${b ? `<label>Restante previsto (min de estudo)<input name="remaining" inputmode="numeric" placeholder="automático" value="${esc(v.remainingMin ?? '')}"></label>` : ''}
       </div>
       <datalist id="subjects">${subjects.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
       <details style="margin-top:8px"><summary>Pomodoro deste bloco (copiado do padrão; ajuste se precisar)</summary><div class="form-grid" style="margin-top:8px">
@@ -276,8 +315,8 @@
       <div class="preview" id="plan-preview"></div><div class="preview" id="cap-preview"></div></fieldset>
       ${b ? `<fieldset><legend>Execução</legend><div class="form-grid">
         <label class="wide">Conteúdo / páginas efetivamente estudados<input name="studied" value="${esc(v.studied)}"></label>
-        <label>Questões respondidas<input name="questions" inputmode="numeric" value="${v.questions ?? ''}"></label>
-        <label>Acertos<input name="hits" inputmode="numeric" value="${v.hits ?? ''}"></label>
+        <label>Questões respondidas<input name="questions" inputmode="numeric" value="${esc(v.questions ?? '')}"></label>
+        <label>Acertos<input name="hits" inputmode="numeric" value="${esc(v.hits ?? '')}"></label>
         <div class="field">Erros / Taxa de acerto<b id="res-calc"></b></div>
         <label class="wide">Observações (dificuldades, conteúdo pendente)<textarea name="notes" rows="3">${esc(v.notes)}</textarea></label></div>
         <div class="preview"><b>Realizado:</b> foco regular ${dur(real.focusMs)} + extra ${dur(real.extraMs)} = <b>${dur(real.studyMs)}</b> estudados
@@ -354,9 +393,12 @@
       return errs.length ? null : data;
     };
     const commit = (data) => {
-      if (b) Object.assign(b, data);
-      else state.blocks.push(K.normalizeBlock({ id: uid(), completed: false, sessions: [], studied: '', questions: null, hits: null, notes: '', reviewOf: v.reviewOf || null, ...data }));
-      save();
+      if (b) {
+        const cur = blockById(b.id); // o estado pode ter sido trocado por outra aba enquanto o diálogo estava aberto
+        if (!cur) { alert('Este bloco foi excluído em outra aba; nada foi salvo.'); return false; }
+        Object.assign(cur, data);
+      } else state.blocks.push(K.normalizeBlock({ id: uid(), completed: false, sessions: [], studied: '', questions: null, hits: null, notes: '', reviewOf: v.reviewOf || null, ...data }));
+      save(); return true;
     };
     form.addEventListener('input', refresh);
     $('#use-default', dlg).onclick = () => { Object.entries(state.settings.config).forEach(([k, val]) => { form.elements[k].value = val; }); refresh(); };
@@ -370,7 +412,8 @@
       };
       $('#b-toggle', dlg).onclick = () => {
         const d = collect(); if (!d) return;
-        Object.assign(d, { completed: !b.completed, completedAt: b.completed ? null : Date.now() });
+        const cur0 = blockById(b.id) || b;
+        Object.assign(d, { completed: !cur0.completed, completedAt: cur0.completed ? null : Date.now() });
         commit(d); dlg.close(); render();
       };
       const rv = $('#b-review', dlg);
@@ -439,7 +482,8 @@
       else buttons = btn('pause', '⏸ Pausar') + (focusLike ? btn('break', `☕ Iniciar pausa ${kind}`) : btn('focus', 'Pular pausa e iniciar foco'));
       buttons += btn('finish', '⏹ Encerrar', 'danger') + btn('open', 'Bloco');
       el.className = `timer ${s.phase === 'extra' ? 'extra' : brk ? 'rest' : ''}`;
-      el.innerHTML = `<div class="muted" id="t-block"></div><div class="phase" id="t-phase"></div><div class="clock" id="t-clock"></div>
+      el.setAttribute('aria-label', 'Cronômetro de estudo');
+      el.innerHTML = `<div class="muted" id="t-block"></div><div class="phase" id="t-phase" role="status" aria-live="polite"></div><div class="clock" id="t-clock"></div>
         <div class="row">${buttons}</div><div class="info" id="t-info"></div>`;
       $('#t-block', el).textContent = `${b.subject} — ${b.title}`;
     }
@@ -474,7 +518,7 @@
       <p class="muted">O limite conta só tempo de <b>estudo</b> (sem pausas). Não é meta de preenchimento. Exceções de uma semana ficam em "Semana" no calendário e não alteram esta rotina.</p>
       <div class="form-grid"><label>Limite semanal de estudo (horas líquidas; vazio = sem limite)<input name="limitH" inputmode="decimal" value="${minToHours(state.settings.weeklyLimitMin)}"></label>
         <label>Fechamento do relatório semanal<select name="closeDay">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<option value="${d}"${cl.day === d ? ' selected' : ''}>${WD[d]}</option>`).join('')}</select></label>
-        <label>Horário do fechamento<input type="time" name="closeTime" value="${cl.time}"></label></div>
+        <label>Horário do fechamento<input type="time" name="closeTime" value="${esc(cl.time)}"></label></div>
       <p class="muted" style="margin-top:10px">Faixas de estudo por dia (ex.: 08:00-12:00, 14:00-18:00). Vazio = dia indisponível.</p>
       <div class="form-grid">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<label>${WD[d]}<input name="day${d}" placeholder="indisponível" value="${esc(fmtRanges(av.days[d]))}"></label>`).join('')}</div>
       <label class="field" style="margin-top:10px">Períodos indisponíveis (um por linha: "3 12:00-14:00 Almoço" repete toda quarta; "2026-10-15 09:00-10:00 Consulta" só naquele dia)
@@ -561,7 +605,8 @@
   const rate = (g) => (g.rate !== null ? g.rate.toFixed(1).replace('.', ',') + '%' : (g.pendingResults ? 'Resultado pendente' : 'Sem questões registradas'));
   function renderReports() {
     const sel = $('#f-subject'), cur = sel.value;
-    sel.innerHTML = '<option value="">Todas</option>' + [...new Set(state.blocks.map((b) => b.subject))].sort().map((s) => `<option${s === cur ? ' selected' : ''}>${esc(s)}</option>`).join('');
+    sel.innerHTML = '<option value="">Todas</option>' + [...new Set(state.blocks.map((b) => b.subject))].sort().map((s) => `<option>${esc(s)}</option>`).join('');
+    sel.value = cur; // sem atributo "selected": assim o botão Limpar volta para "Todas"
     const opts = { subject: sel.value, from: $('#f-from').value, to: $('#f-to').value, groupBy: $('#f-group').value };
     const now = new Date(), r = C.consolidate(state.blocks, opts, now, state.session);
     if (!r.blocks.length) { $('#report').innerHTML = '<p class="muted">Nenhum bloco encontrado para os filtros escolhidos.</p>'; return; }
@@ -588,7 +633,7 @@
       <thead><tr><th class="l">Dia</th><th class="l">Bloco</th><th>Situação</th><th>Previsto</th><th>Estudado</th><th>Extra</th><th>Questões</th><th>Acertos</th><th>Taxa</th></tr></thead><tbody>
       ${g.blocks.slice().sort((a, b) => (a.date + a.start < b.date + b.start ? -1 : 1)).map((b) => {
         const sp = C.blockSpan(b), re = C.blockRealized(b, state.session, now.getTime()), a = C.accuracy(b), st = C.blockStatus(b, now);
-        return `<tr><td class="l">${C.parseDate(b.date).toLocaleDateString('pt-BR')} ${b.start}</td><td class="l"><a href="#" data-open-block="${b.id}">${esc(b.subject)} – ${esc(b.title)}</a></td>
+        return `<tr><td class="l">${C.parseDate(b.date).toLocaleDateString('pt-BR')} ${b.start}</td><td class="l"><a href="#" data-open-block="${esc(b.id)}">${esc(b.subject)} – ${esc(b.title)}</a></td>
           <td><span class="chip st-${st}">${C.STATUS_LABEL[st]}</span></td><td>${dur(sp.studyMin * C.MIN)}</td><td>${dur(re.studyMs)}</td><td>${dur(re.extraMs)}</td>
           <td>${b.questions ?? '—'}</td><td>${b.hits ?? '—'}</td><td>${a.label}</td></tr>`;
       }).join('')}</tbody></table></div></details>`).join('');
@@ -612,17 +657,31 @@
     save();
     $('#tab-weekly').textContent = 'Relatório semanal ●';
   }
-  function applySuggestion(sg) {
-    const plan = window.Commands.plan(state, sg.commands, Date.now());
-    if (plan.status === 'needs_clarification' || !plan.changes.length) {
-      alert('Não consegui aplicar automaticamente:\n' + ((plan.questions || []).map((q) => '• ' + q.text).join('\n') || (plan.warnings || []).map((x) => '• ' + x.text).join('\n') || 'Nenhuma alteração possível.'));
+  /** Planeja os comandos, mostra o que muda e só grava após confirmação. */
+  function applyCommandsWithConfirm(commands, title, reason) {
+    const plan = window.Commands.plan(state, commands, Date.now());
+    if (plan.status === 'needs_clarification') {
+      const q = (plan.questions || []).find((x) => x.options && x.options.length);
+      if (q) { pickOption(q, title, reason); return; }
+      alert('Preciso de mais informação:\n' + (plan.questions || []).map((x) => '• ' + x.text).join('\n'));
       return;
     }
-    if (!confirm(`${sg.text}\n\nMotivo: ${sg.reason}\n\nAlterações que serão feitas:\n${plan.changes.map((c) => '• ' + c.summary).join('\n')}\n\nAplicar no calendário?`)) return;
-    const res = window.Commands.applyChanges(state, plan.changes, { source: 'chat', summary: sg.text, nowMs: Date.now() });
+    if (!plan.changes.length) { alert('Nada a alterar:\n' + ((plan.warnings || []).map((x) => '• ' + x.text).join('\n') || 'nenhuma alteração possível.')); return; }
+    if (!confirm(`${title}${reason ? `\n\nMotivo: ${reason}` : ''}\n\nAlterações que serão feitas:\n${plan.changes.map((c) => '• ' + c.summary).join('\n')}\n\nAplicar no calendário?`)) return;
+    const res = window.Commands.applyChanges(state, plan.changes, { source: 'chat', summary: title, nowMs: Date.now() });
     if (res.applied.length) { state = K.normalizeState(res.state); save(); render(); }
     alert(res.applied.length ? `${res.applied.length} alteração(ões) salva(s).${res.failed.length ? '\nNão aplicadas:\n' + res.failed.map((f) => '• ' + f.reason).join('\n') : ''}` : 'Nada foi alterado:\n' + res.failed.map((f) => '• ' + f.reason).join('\n'));
   }
+  /** Quando há escolha a fazer (ex.: horário da revisão), mostra as opções como botões. */
+  function pickOption(q, title, reason) {
+    const dlg = $('#dlg-pick');
+    dlg.innerHTML = `<form method="dialog"><h3>${esc(title)}</h3><p>${esc(q.text)}</p><div class="actions" style="justify-content:flex-start">${q.options.map((o, i) => `<button type="button" data-o="${i}" class="primary">${esc(o.label)}</button>`).join('')}</div>
+      <div class="actions"><button type="button" id="pick-cancel">Cancelar</button></div></form>`;
+    $('#pick-cancel', dlg).onclick = () => dlg.close();
+    dlg.querySelectorAll('[data-o]').forEach((b) => { b.onclick = () => { const o = q.options[Number(b.dataset.o)]; dlg.close(); if (o.commands) applyCommandsWithConfirm(o.commands, title, reason); }; });
+    dlg.showModal();
+  }
+  function applySuggestion(sg) { applyCommandsWithConfirm(sg.commands, sg.text, sg.reason); }
   function renderWeekly() {
     const el = $('#weekly'), sel = $('#w-week');
     if (!W) { el.textContent = 'Módulo de relatório indisponível.'; return; }
@@ -665,7 +724,7 @@
     ui.view = v;
     $('#view-calendar').hidden = v !== 'calendar'; $('#view-reports').hidden = v !== 'reports'; $('#view-weekly').hidden = v !== 'weekly';
     if (v === 'weekly') $('#tab-weekly').textContent = 'Relatório semanal';
-    document.querySelectorAll('[data-view]').forEach((t) => t.classList.toggle('active', t.dataset.view === v));
+    document.querySelectorAll('[data-view]').forEach((t) => { t.classList.toggle('active', t.dataset.view === v); t.setAttribute('aria-pressed', String(t.dataset.view === v)); });
     render();
   }
   function render() {
@@ -678,12 +737,13 @@
     const s = state.session;
     if (s && C.advance(s, Date.now())) { save(); handleAlert(); render(); return; }
     renderTimer();
-    const key = new Date().toISOString().slice(0, 16);
+    const key = Math.floor(Date.now() / (state.session ? 10000 : 60000)); // com cronômetro, o painel de capacidade acompanha a cada 10 s
     if (key !== ui.minuteKey && !ui.drag && !document.querySelector('dialog[open]')) { ui.minuteKey = key; render(); }
   }
 
   document.addEventListener('click', (e) => {
     unlockAudio();
+    if (ui.soundNotice && !e.target.closest('#banner-close')) { ui.soundNotice = false; $('#alert-banner').hidden = true; }
     const a = e.target.closest('[data-act]'); if (a && a.closest('#timer')) timerAction(a.dataset.act);
     if (e.target.id === 'banner-close') $('#alert-banner').hidden = true;
     const ob = e.target.closest('[data-open-block]'); if (ob) { e.preventDefault(); openBlockDialog({ id: ob.dataset.openBlock }); }
@@ -798,6 +858,16 @@
     }
   }
   $('#btn-chat').addEventListener('click', toggleChat);
+  /** Faixa de aviso reaproveitando #alert-banner. */
+  function showNotice(text, soundHint) {
+    const el = $('#alert-banner'); el.textContent = '';
+    const sp = document.createElement('span'); sp.textContent = text;
+    const bt = document.createElement('button'); bt.id = 'banner-close'; bt.textContent = 'Entendi';
+    el.append(sp, bt); el.hidden = false; ui.soundNotice = !!soundHint;
+  }
+  if (loadNotice) showNotice(loadNotice);
+  else if (state.quarantine && state.quarantine.length) showNotice(`${state.quarantine.length} bloco(s) com dados inválidos foram guardados à parte (não aparecem no calendário, mas não foram apagados).`);
+  else if (state.session) showNotice('Há um cronômetro em andamento. Clique em qualquer lugar da página para ativar o som dos alertas.', true);
   autoGenerateReport();
   bindCalendar();
   render();

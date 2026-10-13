@@ -142,7 +142,8 @@
     const focus = s.settings.config.focusMin;
 
     // A) pendências atrasadas que ainda não têm novo horário.
-    const pending = s.blocks.filter((b) => !b.completed && b.date <= weekEnd && Core.blockStatus(b, now) === 'atrasado' && Cap.remainingMin(b) > 0)
+    const hasFollowUp = (b) => s.blocks.some((o) => o.id !== b.id && !o.completed && o.date > b.date && o.subject === b.subject && o.title === b.title);
+    const pending = s.blocks.filter((b) => !b.completed && b.date <= weekEnd && Core.blockStatus(b, now) === 'atrasado' && Cap.remainingMin(b) > 0 && !hasFollowUp(b))
       .sort((a, b) => rank(a.priority) - rank(b.priority) || a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
     const cands = pending.map((b) => {
       const rem = Cap.remainingMin(b), poms = Math.max(1, Math.ceil(rem / b.config.focusMin));

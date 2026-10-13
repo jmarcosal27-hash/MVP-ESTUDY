@@ -14,28 +14,66 @@
   });
   const DEFAULT_LIMIT_MIN = 1200; // 20h líquidas por semana (editável)
 
-  function normalizeBlock(b) {
-    return { kind: 'estudo', reviewOf: null, priority: null, deadline: null, fixed: false, material: '',
-      originWeek: weekKey(b.date), remainingMin: null, source: 'manual', pdf: '', pages: '', studied: '', notes: '',
-      questions: null, hits: null, completed: false, ...b, sessions: b.sessions || [] };
+  /* ---------- saneamento: nada vindo do storage ou do chat é confiável ---------- */
+  const cleanInt = (v) => {
+    const n = typeof v === 'number' ? v : (typeof v === 'string' && /^\s*\d+\s*$/.test(v) ? Number(v) : NaN);
+    return Number.isInteger(n) && n >= 0 ? n : null;
+  };
+  const cleanStr = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+  const posInt = (v, def) => (Number.isInteger(v) && v >= 1 && v <= 1440 ? v : def);
+  function cleanConfig(c, base) {
+    const d = { ...C.DEFAULT_CONFIG, ...(base || {}) }, o = c && typeof c === 'object' ? c : {};
+    return { focusMin: posInt(o.focusMin, d.focusMin), shortMin: posInt(o.shortMin, d.shortMin), longEvery: posInt(o.longEvery, d.longEvery), longMin: posInt(o.longMin, d.longMin) };
+  }
+  /** Devolve uma cópia saneada do bloco (tipos e enums válidos). Não valida data/hora: isso é feito por normalizeState/validateBlockPlan. */
+  function normalizeBlock(b, defaultConfig) {
+    b = b && typeof b === 'object' ? b : {};
+    const date = typeof b.date === 'string' ? b.date : '';
+    return {
+      ...b,
+      id: String(b.id === undefined || b.id === null ? 'bloco' : b.id).replace(/[^\w.-]/g, '_').slice(0, 64) || 'bloco',
+      subject: cleanStr(b.subject, 200), title: cleanStr(b.title, 200), date, start: typeof b.start === 'string' ? b.start : '',
+      estimated: b.estimated, config: cleanConfig(b.config, defaultConfig),
+      kind: b.kind === 'revisao' ? 'revisao' : 'estudo', reviewOf: typeof b.reviewOf === 'string' ? b.reviewOf.slice(0, 64) : null,
+      priority: ['alta', 'media', 'baixa'].includes(b.priority) ? b.priority : null,
+      deadline: C.okDate(b.deadline) ? b.deadline : null, fixed: b.fixed === true,
+      material: cleanStr(b.material, 300), pdf: cleanStr(b.pdf, 300), pages: cleanStr(b.pages, 200), studied: cleanStr(b.studied, 1000), notes: cleanStr(b.notes, 2000),
+      originWeek: C.okDate(b.originWeek) ? b.originWeek : (C.okDate(date) ? weekKey(date) : null),
+      remainingMin: cleanInt(b.remainingMin), source: ['manual', 'chat', 'scheduler'].includes(b.source) ? b.source : 'manual',
+      questions: cleanInt(b.questions), hits: cleanInt(b.hits), completed: b.completed === true,
+      sessions: Array.isArray(b.sessions) ? b.sessions.filter((x) => x && typeof x === 'object' && x.totals && typeof x.totals === 'object') : [],
+    };
+  }
+  const validBlock = (b) => C.okDate(b.date) && C.okTime(b.start) && Number.isInteger(b.estimated) && b.estimated >= 1;
+  /** Uma sessão de cronômetro só é aceita se tiver a estrutura que o core.js espera. */
+  function validSession(x) {
+    return !!x && typeof x === 'object' && typeof x.blockId === 'string' && Array.isArray(x.segments) && Array.isArray(x.cycles) && x.cfg && typeof x.cfg === 'object'
+      && ['focus', 'extra', 'short', 'long'].includes(x.phase) && ['running', 'paused', 'awaiting'].includes(x.state) && Number.isFinite(x.startedAt)
+      && Number.isFinite(x.phaseMs) && Number.isInteger(x.pomo);
   }
   function normalizeState(s) {
-    const st = s.settings || {};
+    s = s && typeof s === 'object' ? s : {};
+    const st = s.settings && typeof s.settings === 'object' ? s.settings : {};
+    const config = cleanConfig(st.config);
+    const blocks = [], quarantine = Array.isArray(s.quarantine) ? s.quarantine.slice() : [];
+    for (const raw of Array.isArray(s.blocks) ? s.blocks : []) {
+      const nb = normalizeBlock(raw, config);
+      if (raw && typeof raw === 'object' && validBlock(nb)) blocks.push(nb); else quarantine.push(raw); // inválido não é exibido nem apagado
+    }
     return {
       ...s,
       settings: {
-        ...st,
-        config: { ...C.DEFAULT_CONFIG, ...(st.config || {}) },
-        weeklyLimitMin: st.weeklyLimitMin === undefined ? DEFAULT_LIMIT_MIN : st.weeklyLimitMin,
-        availability: st.availability || DEFAULT_AVAILABILITY(),
-        closing: st.closing || { day: 7, time: '21:00' },
+        ...st, config,
+        weeklyLimitMin: st.weeklyLimitMin === undefined ? DEFAULT_LIMIT_MIN : (st.weeklyLimitMin === null ? null : (cleanInt(st.weeklyLimitMin) ?? DEFAULT_LIMIT_MIN)),
+        availability: st.availability && typeof st.availability === 'object' && st.availability.days ? { days: st.availability.days, unavailable: Array.isArray(st.availability.unavailable) ? st.availability.unavailable : [] } : DEFAULT_AVAILABILITY(),
+        closing: st.closing && typeof st.closing === 'object' ? st.closing : { day: 7, time: '21:00' },
       },
-      weekOverrides: s.weekOverrides || {},
-      blocks: (s.blocks || []).map(normalizeBlock),
-      changeLog: s.changeLog || [],
-      reports: s.reports || {},
-      chat: s.chat || { messages: [] },
-      session: s.session || null,
+      weekOverrides: s.weekOverrides && typeof s.weekOverrides === 'object' ? s.weekOverrides : {},
+      blocks, quarantine: quarantine.slice(-200),
+      changeLog: Array.isArray(s.changeLog) ? s.changeLog : [],
+      reports: s.reports && typeof s.reports === 'object' ? s.reports : {},
+      chat: s.chat && typeof s.chat === 'object' && Array.isArray(s.chat.messages) ? s.chat : { messages: [] },
+      session: validSession(s.session) ? s.session : null,
     };
   }
 
@@ -183,6 +221,6 @@
     return { fitsCapacity, fitsAgenda, fits: fitsCapacity && fitsAgenda, excessMin, balanceMin: cfg.balanceMin, options };
   }
 
-  return { DEFAULT_LIMIT_MIN, DEFAULT_AVAILABILITY, normalizeBlock, normalizeState, weekKey, isoWeekday, weekDates, effectiveWeek,
+  return { DEFAULT_LIMIT_MIN, DEFAULT_AVAILABILITY, normalizeBlock, normalizeState, validBlock, validSession, weekKey, isoWeekday, weekDates, effectiveWeek,
     netStudyMin, agendaMin, realizedMin, remainingMin, freeIntervals, capacityFor, wouldFit };
 });

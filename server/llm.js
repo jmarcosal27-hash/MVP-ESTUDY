@@ -98,6 +98,7 @@ function parseResponse(data) {
 }
 
 /** Chama a API. `fetchImpl` permite simular a API nos testes (nunca chamamos a real em teste). A chave só vai no cabeçalho. */
+const REQUEST_TIMEOUT_MS = 30000;
 async function askClaude({ apiKey, model, messages, context, fetchImpl }) {
   if (!apiKey) throw new ChatError(503, 'O chat está desativado: falta a chave da Anthropic. Defina ANTHROPIC_API_KEY no arquivo .env e reinicie o servidor.');
   const msgs = cleanMessages(messages);
@@ -109,8 +110,10 @@ async function askClaude({ apiKey, model, messages, context, fetchImpl }) {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': API_VERSION },
       body: JSON.stringify({ model: model || DEFAULT_MODEL, max_tokens: 2048, system: buildSystem(context), tools: TOOLS, messages: msgs }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS), // API lenta não pendura o servidor
     });
   } catch (e) {
+    if (e && e.name === 'TimeoutError') throw new ChatError(504, 'A API da Anthropic demorou demais para responder. Tente de novo.');
     throw new ChatError(502, 'Não consegui falar com a API da Anthropic. Verifique sua conexão com a internet.');
   }
   if (!res.ok) {

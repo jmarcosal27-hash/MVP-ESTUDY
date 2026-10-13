@@ -98,7 +98,7 @@
       if (busy) return;
       const res = K.undoLast(api.getState());
       if (!res.undone) { const m = 'Não há alteração do chat para desfazer.'; log('system', m); bubble('system', m); return; }
-      const lines = [`Desfeito: ${res.undone.summary}`, ...res.failed.map((f) => `• Não revertido: ${f.reason}`)];
+      const lines = [`${res.failed.length ? 'Desfeito parcialmente' : 'Desfeito'}: ${res.undone.summary}`, ...res.failed.map((f) => `• Não revertido: ${f.reason}`)];
       const text = lines.join('\n');
       log('system', text);
       try { api.setState(persist(res.state)); } catch (e) { msgs.pop(); const m = 'Não consegui salvar; nada foi desfeito.'; log('system', m); bubble('system', m); return; }

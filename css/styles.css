@@ -1,10 +1,10 @@
 :root {
-  --bg: #f4f6fa; --surface: #fff; --text: #1d2433; --muted: #6a7389; --line: #dfe3ec; --accent: #3b5bdb;
-  --blue: #1971c2; --blue-bg: #d0ebff; --red: #c92a2a; --red-bg: #ffe3e3; --green: #2b8a3e; --green-bg: #d3f9d8;
+  --bg: #f4f6fa; --surface: #fff; --text: #1d2433; --muted: #5b647a; --line: #dfe3ec; --accent: #3b5bdb; --accent-solid: #3b5bdb; --accent-text: #3b5bdb; --meta: #3d465c;
+  --blue: #14609f; --blue-bg: #d0ebff; --red: #a61e1e; --red-bg: #ffe3e3; --green: #1d6e2e; --green-bg: #d3f9d8;
   --warn: #e67700; --hour: 52px;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #14171f; --surface: #1d222d; --text: #e6e9f0; --muted: #98a1b6; --line: #333a4a; --accent: #748ffc;
+  :root { --bg: #14171f; --surface: #1d222d; --text: #e6e9f0; --muted: #a6aec2; --line: #333a4a; --accent: #748ffc; --accent-solid: #4263eb; --accent-text: #b5c4ff; --meta: #c9d0e0;
     --blue: #74c0fc; --blue-bg: #1c3550; --red: #ffa8a8; --red-bg: #4a2327; --green: #8ce99a; --green-bg: #1f4128; --warn: #ffc078; }
 }
 * { box-sizing: border-box; }
@@ -12,12 +12,12 @@ body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: var(--bg); c
 button, input, select, textarea { font: inherit; color: inherit; }
 button { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
 button:hover { border-color: var(--accent); }
-button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.primary { background: var(--accent-solid); color: #fff; border-color: var(--accent-solid); }
 button.danger { color: var(--red); }
 input, select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; }
 .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
 .topbar h1 { font-size: 18px; margin: 0; }
-.tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.tab.active { background: var(--accent-solid); color: #fff; border-color: var(--accent-solid); }
 main { padding: 12px 16px 220px; }
 .muted { color: var(--muted); font-size: 12px; }
 .cal-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -53,9 +53,9 @@ main { padding: 12px 16px 220px; }
 .block.conflict { outline: 2px solid var(--warn); }
 .block.active { box-shadow: 0 0 0 2px var(--accent); }
 .block b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.block .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.block .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--meta); }
 .tag { font-weight: 700; font-size: 11px; }
-.tag.run { color: var(--accent); }
+.tag.run { color: var(--accent-text); }
 .tag.warn { color: var(--warn); }
 
 .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
@@ -101,7 +101,7 @@ legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
 .chat-drawer { position: fixed; right: 12px; top: 64px; bottom: 12px; width: min(380px, calc(100vw - 24px)); z-index: 9; background: var(--surface);
   border: 1px solid var(--line); border-radius: 12px; padding: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.2); display: flex; flex-direction: column; }
 .chat-drawer[hidden] { display: none; }
-body.has-timer .chat-drawer { bottom: 270px; }
+body.has-timer .chat-drawer { bottom: 292px; }
 @media (min-width: 1100px) { body.chat-open main { margin-right: 404px; } }
 .chat-drawer.chat { height: auto; }
 
@@ -112,3 +112,5 @@ body.has-timer .chat-drawer { bottom: 270px; }
 .sched-out table td, .sched-out table th { padding: 4px 6px; }
 .sched-out input[type=date], .sched-out input[type=time] { width: auto; }
 .unplaced { background: var(--red-bg); color: var(--red); border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
+
+.block:focus-visible, button:focus-visible, .tab:focus-visible { outline: 3px solid var(--accent-text); outline-offset: 2px; }

@@ -8,6 +8,7 @@ const { askClaude, ChatError, DEFAULT_MODEL } = require('./llm.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const MAX_BODY = 1024 * 1024; // 1 MB
+const MAX_CONTEXT = 120 * 1024; // contexto do calendário enviado ao modelo (evita custo/abuso)
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 // só o app é público: nunca .env, server/, tests/, docs/ nem .git
@@ -34,19 +35,22 @@ const sendJson = (res, status, obj) => {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = []; let size = 0;
+    let tooBig = false;
     req.on('data', (c) => {
       size += c.length;
-      if (size > MAX_BODY) { reject(new ChatError(413, 'Mensagem grande demais.')); req.destroy(); return; }
+      if (size > MAX_BODY * 8) { req.destroy(); return; } // abuso: corta de vez
+      if (size > MAX_BODY) { tooBig = true; chunks.length = 0; return; } // descarta o resto e responde 413 ao final
       chunks.push(c);
     });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('end', () => (tooBig ? reject(new ChatError(413, 'Mensagem grande demais.')) : resolve(Buffer.concat(chunks).toString('utf8'))));
     req.on('error', reject);
   });
 }
 
 /** Aceita só requisições destinadas a localhost (evita DNS rebinding e uso por páginas de outros sites). */
 const hostOk = (req) => /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(req.headers.host || '');
-const originOk = (req) => { const o = req.headers.origin; if (!o) return true; try { return /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(new URL(o).hostname); } catch (e) { return false; } };
+// Origin precisa ser exatamente este servidor (mesma porta): outro app local em outra porta não pode usar o chat.
+const originOk = (req) => { const o = req.headers.origin; if (!o) return true; try { return new URL(o).host.toLowerCase() === String(req.headers.host || '').toLowerCase(); } catch (e) { return false; } };
 
 /**
  * Cria o servidor. `options.env` (padrão process.env) e `options.fetchImpl` permitem testar com a API simulada.
@@ -61,6 +65,7 @@ function createServer(options = {}) {
       if (e instanceof ChatError) return sendJson(res, e.status, { error: e.message });
       return sendJson(res, 400, { error: 'JSON inválido.' });
     }
+    if (body && body.context !== undefined && JSON.stringify(body.context).length > MAX_CONTEXT) return sendJson(res, 413, { error: 'O contexto enviado é grande demais.' });
     try {
       const out = await askClaude({ apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL || DEFAULT_MODEL,
         messages: body && body.messages, context: body && body.context, fetchImpl });

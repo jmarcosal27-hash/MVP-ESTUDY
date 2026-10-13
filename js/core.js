@@ -10,6 +10,9 @@
   const pad = (n) => String(n).padStart(2, '0');
   const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const parseDate = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  /** Data real no formato YYYY-MM-DD (rejeita 2026-02-31) e hora real HH:MM (rejeita 12:75). */
+  const okDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && isoDate(parseDate(s)) === s;
+  const okTime = (s) => typeof s === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
   const toMin = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
   const fromMin = (min) => `${pad(Math.floor(min / 60))}:${pad(min % 60)}`;
   const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
@@ -67,8 +70,8 @@
     const errors = [];
     if (!b.subject || !b.subject.trim()) errors.push('Informe a matéria.');
     if (!b.title || !b.title.trim()) errors.push('Informe o assunto ou título.');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(b.date || '')) errors.push('Informe o dia do estudo.');
-    if (!/^\d{2}:\d{2}$/.test(b.start || '')) errors.push('Informe o horário de início.');
+    if (!okDate(b.date)) errors.push('Informe um dia válido para o estudo.');
+    if (!okTime(b.start)) errors.push('Informe um horário de início válido (HH:MM).');
     if (!Number.isInteger(b.estimated) || b.estimated < 1) errors.push('A estimativa deve ser um número inteiro de pomodoros (mínimo 1).');
     errors.push(...validateConfig(b.config));
     if (!errors.length && blockSpan(b).endMin > 1440) errors.push('O bloco ultrapassa a meia-noite; ajuste o horário ou a quantidade de pomodoros.');
@@ -355,7 +358,7 @@
   }
 
   return {
-    MIN, DEFAULT_CONFIG, pad, isoDate, parseDate, toMin, fromMin, addDays, mondayOf, atMinutes, fmtDur, fmtClock,
+    MIN, DEFAULT_CONFIG, pad, isoDate, parseDate, okDate, okTime, toMin, fromMin, addDays, mondayOf, atMinutes, fmtDur, fmtClock,
     validateConfig, breaksFor, planBlock, blockSpan, validateBlockPlan, blockStatus, STATUS_LABEL,
     parseCount, validateResult, accuracy, totalsOfSegments, addTotals, sessionsTotals, sessionsPomodoros, zeroTotals,
     startSession, elapsed, advance, pause, resume, startBreak, startFocus, finishSession, liveTotals,
