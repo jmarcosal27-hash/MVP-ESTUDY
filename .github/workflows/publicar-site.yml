@@ -1,0 +1,38 @@
+# Publica o Estudy no GitHub Pages (branch gh-pages) a cada push na branch de trabalho.
+# Só publica se todos os testes passarem.
+name: Publicar site
+
+on:
+  push:
+    branches: [claude/clever-meitner-98dao2]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Testes
+        run: node --test tests/*.test.js
+      - name: Gerar o arquivo único
+        run: node tools/build-estudy.js
+      - name: Publicar na branch gh-pages
+        run: |
+          mkdir _site
+          cp estudy.html _site/index.html
+          touch _site/.nojekyll
+          printf '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=./"><title>Estudy</title><a href="./">Abrir o Estudy</a>\n' > _site/404.html
+          cd _site
+          git init -q -b gh-pages
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git add -A
+          git commit -q -m "Publica o Estudy (${GITHUB_SHA::7})"
+          git push -f origin gh-pages
