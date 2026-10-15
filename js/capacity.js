@@ -31,6 +31,7 @@
     const date = typeof b.date === 'string' ? b.date : '';
     return {
       ...b,
+      pending: b.pending === true,
       id: String(b.id === undefined || b.id === null ? 'bloco' : b.id).replace(/[^\w.-]/g, '_').slice(0, 64) || 'bloco',
       subject: cleanStr(b.subject, 200), title: cleanStr(b.title, 200), date, start: typeof b.start === 'string' ? b.start : '',
       estimated: b.estimated, config: cleanConfig(b.config, defaultConfig),
@@ -129,7 +130,7 @@
     let iv = (eff.days[wd] || []).map(rng).sort((x, y) => x[0] - y[0]);
     for (const u of eff.unavailable) if ((u.day === wd) || u.date === dateStr) iv = subtract(iv, rng(u));
     for (const b of s.blocks) {
-      if (b.date !== dateStr || ignoreBlockIds.includes(b.id)) continue;
+      if (b.pending || b.date !== dateStr || ignoreBlockIds.includes(b.id)) continue; // bloco pendente (proposta em conflito) não ocupa horário
       const st = C.toMin(b.start);
       iv = subtract(iv, [st, st + agendaMin(b)]);
     }
@@ -140,7 +141,7 @@
   function capacityFor(state, weekMonday, nowMs) {
     const s = normalizeState(state), eff = effectiveWeek(s, weekMonday), limit = eff.limitMin;
     const dates = weekDates(weekMonday), now = new Date(nowMs);
-    const inWeek = s.blocks.filter((b) => dates.includes(b.date));
+    const inWeek = s.blocks.filter((b) => !b.pending && dates.includes(b.date)); // pendente só conta depois de confirmado
     const live = s.session && s.session.startedAt ? C.liveTotals(s.session, nowMs).studyMs / MIN : 0;
     const liveBlock = s.session ? s.session.blockId : null;
     const liveWeek = s.session ? weekOfMs(s.session.startedAt) : null;

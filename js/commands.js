@@ -107,7 +107,7 @@
 
   /* ---------- contexto da proposta ---------- */
   function makeCtx(state, nowMs) {
-    return { state, nowMs, work: (state.blocks || []).map((b) => Cap.normalizeBlock(clone(b))), seq: 0,
+    return { state, nowMs, work: (state.blocks || []).filter((b) => !(b && b.pending)).map((b) => Cap.normalizeBlock(clone(b))), seq: 0,
       changes: [], questions: [], results: [], conflicts: [], warnings: [], alternatives: [], confirm: false, mutating: 0, undoRequested: false };
   }
   const genId = (ctx) => `c${ctx.nowMs.toString(36)}${(++ctx.seq).toString(36)}`;

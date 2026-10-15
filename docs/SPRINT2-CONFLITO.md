@@ -1,3 +1,5 @@
+> **Estado: implementado pelo maestro (`js/conflict.js`, `tests/conflict.test.js` e a tela). O agente C não chegou a ser usado.**
+
 # Sprint 2 — Motor da regra de conflito (briefing para o agente)
 
 Você é o **Agente C**. O maestro (outra sessão) cuida da tela; **você faz só o motor puro e os testes**. Leia antes: `docs/ARQUITETURA-V2.md`, `js/core.js`, `js/capacity.js`, `js/commands.js` (função `overlapsOf`), `tests/core.test.js`.

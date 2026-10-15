@@ -148,3 +148,18 @@ details.more summary { cursor: pointer; color: var(--accent-text); font-size: 13
 .tg-part input, .tg-part textarea, .tg-part select { margin: 4px 0; }
 .tg-note { display: flex; justify-content: space-between; gap: 6px; align-items: flex-start; border-top: 1px dashed var(--line); padding: 4px 0; }
 .chat-drawer.guide[hidden], .chat-drawer[hidden] { display: none !important; }
+
+/* ---- Regra de conflito ---- */
+.block.pending { background: #ffe8cc; border-color: #e8590c; color: var(--text); outline: 2px dashed #e8590c; outline-offset: -2px; }
+.block.pending .meta { color: #5f3b00; }
+.block.pending .tag { color: #a43e00; font-weight: 700; }
+@media (prefers-color-scheme: dark) { .block.pending { background: #4a2d0a; } .block.pending .meta { color: #ffd8a8; } .block.pending .tag { color: #ffc078; } }
+.chip.pend { background: #ffe8cc; color: #a43e00; }
+#dlg-conflict { width: min(520px, 94vw); border: 2px solid #e8590c; }
+.conflict-box h3 { margin: 0 0 8px; }
+.conflict-box p { margin: 6px 0; }
+.conflict-q { font-weight: 700; margin-top: 12px; }
+.conflict-actions { display: grid; gap: 8px; margin-top: 10px; }
+.conflict-actions button { padding: 10px 12px; font-weight: 700; text-align: center; }
+.conflict-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.conflict-why { color: var(--red); font-size: 13px; }

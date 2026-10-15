@@ -124,8 +124,9 @@
       warnings.push({ code: 'PRESERVE_FORCED', text: 'Blocos e revisões existentes são sempre preservados; a opção de não preservar foi ignorada.' });
     }
 
-    const base = Cap.normalizeState ? Cap.normalizeState(withRequestOverride(state, weekMonday, request.weekOverrides))
+    const base0 = Cap.normalizeState ? Cap.normalizeState(withRequestOverride(state, weekMonday, request.weekOverrides))
       : withRequestOverride(state, weekMonday, request.weekOverrides);
+    const base = { ...base0, blocks: (base0.blocks || []).filter((b) => !b.pending) }; // pendente não ocupa horário
     const cfg = (base.settings && base.settings.config) || Core.DEFAULT_CONFIG;
     const dates = [];
     for (let i = 0; i < 7; i++) dates.push(Core.isoDate(Core.addDays(Core.parseDate(weekMonday), i)));

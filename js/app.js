@@ -4,7 +4,8 @@
   const C = window.Core;
   const K = window.Capacity;
   const A = window.Alarm;
-  const APP_VERSION = 'sprint 1 · 15/10/2026';
+  const CF = window.Conflict;
+  const APP_VERSION = 'sprint 2 · 15/10/2026';
   const KEY = 'estudy.mvp.v1';
   const HPX = 52; // altura de uma hora no calendário (deve coincidir com --hour no CSS)
   const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -145,7 +146,7 @@
     const iso = days.map(C.isoDate), todayIso = C.isoDate(now);
     const wb = state.blocks.filter((b) => iso.includes(b.date));
     const hStart = Math.min(6, ...wb.map((b) => Math.floor(C.toMin(b.start) / 60)));
-    const conflicts = C.findConflicts(state.blocks, state.session, nowMs);
+    const conflicts = C.findConflicts(state.blocks.filter((b) => !b.pending), state.session, nowMs);
     $('#week-title').textContent = `${days[0].toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} – ${days[6].toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
     // Realizado atribuído ao dia em que a sessão INICIOU (mantém o estudo na semana em que ocorreu, mesmo se o bloco for transferido).
@@ -154,7 +155,7 @@
     for (const b of state.blocks) for (const x of b.sessions) addReal(x.startedAt, x.totals);
     if (state.session) addReal(state.session.startedAt, C.liveTotals(state.session, nowMs));
     const sum = (list, dates) => {
-      const a = list.reduce((acc, b) => { const sp = C.blockSpan(b); acc.pStudy += sp.studyMin * C.MIN; acc.pRest += sp.restMin * C.MIN; return acc; }, { pStudy: 0, pRest: 0 });
+      const a = list.reduce((acc, b) => { if (b.pending) return acc; const sp = C.blockSpan(b); acc.pStudy += sp.studyMin * C.MIN; acc.pRest += sp.restMin * C.MIN; return acc; }, { pStudy: 0, pRest: 0 });
       a.real = dates.reduce((t, d) => C.addTotals(t, realByDate[d] || C.zeroTotals()), C.zeroTotals());
       return a;
     };
@@ -187,18 +188,19 @@
   }
 
   function blockHtml(b, hStart, now, conflict, lay) {
-    const sp = C.blockSpan(b), st = C.blockStatus(b, now);
+    const sp = C.blockSpan(b), st = C.blockStatus(b, now), pend = b.pending === true;
+    const label = pend ? 'Pendente · conflito' : C.STATUS_LABEL[st];
     const active = state.session && state.session.blockId === b.id;
     const height = Math.max(30, (sp.totalMin / 60) * HPX - 2);
     const tip = [`${b.subject} — ${b.title}`, `${b.start}–${C.fromMin(sp.endMin)}`,
-      `Estudo ${dur(sp.studyMin * C.MIN)} + descanso ${dur(sp.restMin * C.MIN)}`, `Situação: ${C.STATUS_LABEL[st]}`, ...(conflict || [])].join('\n');
+      `Estudo ${dur(sp.studyMin * C.MIN)} + descanso ${dur(sp.restMin * C.MIN)}`, `Situação: ${label}`, ...(pend ? ['Proposta pendente: o horário conflita com outro bloco. Clique para resolver.'] : []), ...(conflict || [])].join('\n');
     const L = lay || { col: 0, cols: 1 };
-    return `<div class="block st-${st}${conflict ? ' conflict' : ''}${active ? ' active' : ''}" draggable="true" data-id="${esc(b.id)}" title="${esc(tip)}"
-      tabindex="0" role="button" aria-label="${esc(`${b.subject}, ${b.title}, ${b.start} às ${C.fromMin(sp.endMin)}, ${C.STATUS_LABEL[st]}${conflict ? ', com conflito' : ''}`)}"
+    return `<div class="block ${pend ? 'pending' : 'st-' + st}${conflict ? ' conflict' : ''}${active ? ' active' : ''}" draggable="true" data-id="${esc(b.id)}" title="${esc(tip)}"
+      tabindex="0" role="button" aria-label="${esc(`${b.subject}, ${b.title}, ${b.start} às ${C.fromMin(sp.endMin)}, ${label}${conflict ? ', com conflito' : ''}`)}"
       style="top:${((sp.startMin - hStart * 60) / 60) * HPX}px;height:${height}px;left:calc(${(L.col / L.cols) * 100}% + 3px);right:auto;width:calc(${100 / L.cols}% - 6px)">
       <b>${esc(b.subject)} · ${esc(b.title)}</b>
       <span class="meta">${b.start}–${C.fromMin(sp.endMin)} · 🍅 ${b.estimated}</span>
-      <span class="tag">${C.STATUS_LABEL[st]}</span>${active ? ' <span class="tag run">● Em andamento</span>' : ''}${conflict ? ' <span class="tag warn">⚠ Conflito</span>' : ''}
+      <span class="tag">${pend ? '⚠ ' : ''}${label}</span>${active ? ' <span class="tag run">● Em andamento</span>' : ''}${conflict ? ' <span class="tag warn">⚠ Conflito</span>' : ''}
     </div>`;
   }
 
@@ -206,11 +208,11 @@
     const cal = $('#calendar');
     cal.addEventListener('keydown', (e) => {
       const blk = e.target.closest && e.target.closest('.block');
-      if (blk && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openBlockDialog({ id: blk.dataset.id }); }
+      if (blk && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openBlock(blk.dataset.id); }
     });
     cal.addEventListener('click', (e) => {
       const blk = e.target.closest('.block');
-      if (blk) return openBlockDialog({ id: blk.dataset.id });
+      if (blk) return openBlock(blk.dataset.id);
       const col = e.target.closest('.col');
       if (!col) return;
       const y = e.clientY - col.getBoundingClientRect().top;
@@ -242,7 +244,8 @@
       const nd = col.dataset.date, ns = C.fromMin(min);
       ui.drag = null;
       if (!confirmMove(b, nd, ns)) { renderCalendar(); return; }
-      b.date = nd; b.start = ns; save(); renderCalendar();
+      if (!CF.checkConflict(state, { ...b, date: nd, start: ns }, { ignoreId: b.id }).ok) { renderCalendar(); handleConflict({ block: b, data: { date: nd, start: ns } }); return; }
+      b.date = nd; b.start = ns; b.pending = false; save(); renderCalendar();
     });
   }
 
@@ -251,12 +254,65 @@
     const draft = { ...b, date, start }, issues = [];
     if (b.completed) issues.push(`"${b.title}" já está concluído.`);
     if (b.fixed) issues.push(`"${b.title}" tem horário obrigatório.`);
-    const clash = state.blocks.filter((o) => o.id !== b.id && o.date === date && (() => { const a = C.toMin(o.start), e = a + C.blockSpan(o).totalMin, s0 = C.toMin(start), e0 = s0 + C.blockSpan(b).totalMin; return s0 < e && a < e0; })());
-    if (clash.length) issues.push(`O horário fica sobreposto a ${clash.map((o) => `"${o.title}"`).join(', ')}.`);
     const wk = K.weekKey(date), now = Date.now();
     const before = K.capacityFor(state, wk, now), after = K.capacityFor({ ...state, blocks: state.blocks.map((o) => (o.id === b.id ? draft : o)) }, wk, now);
     if (after.excessMin > before.excessMin) issues.push(`A carga da semana passa a ultrapassar o limite em ${dur(after.excessMin * C.MIN)}.`);
     return !issues.length || confirm(`Mover "${b.title}" para ${date} ${start}?\n\n${issues.map((x) => '• ' + x).join('\n')}\n\nMover mesmo assim?`);
+  }
+
+
+  /* ---------- regra de conflito (Sprint 8): reserva total do bloco, foco e pausas ---------- */
+  function openBlock(id) {
+    const b = blockById(id);
+    if (b && b.pending) return resolvePending(b);
+    openBlockDialog({ id });
+  }
+  function resolvePending(b) {
+    if (CF.checkConflict(state, b, { ignoreId: b.id }).ok) { openBlockDialog({ id: b.id }); return; } // sem conflito agora: "Salvar" confirma
+    handleConflict({ block: b, data: {} });
+  }
+  /**
+   * block = bloco existente (ou null para um bloco novo); data = campos propostos (ainda não gravados).
+   * Novo bloco em conflito é guardado como PROPOSTA PENDENTE (laranja, ⚠, não confirmada). O bloco existente nunca é alterado.
+   */
+  function handleConflict({ block, data }) {
+    let blk = block;
+    if (!blk) { // bloco novo: vira proposta pendente
+      blk = K.normalizeBlock({ id: uid(), completed: false, sessions: [], studied: '', questions: null, hits: null, notes: '', ...data, pending: true });
+      state.blocks.push(blk); save(); render();
+    } else if (blk.pending && Object.keys(data).length) { Object.assign(blk, data); save(); render(); }
+    const isNew = !block, draft = { ...blk, ...data };
+    const chk = CF.checkConflict(state, draft, { ignoreId: draft.id });
+    if (chk.ok) { Object.assign(blk, data, { pending: false }); save(); render(); return; } // ninguém mais bloqueia: confirma
+    const first = chk.conflicts[0], other = blockById(first.blockId), msg = CF.conflictMessage(first, other);
+    const mv = CF.moveAfter(state, draft, first.blockId);
+    const dlg = $('#dlg-conflict'); dlg.textContent = '';
+    const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+    let chosen = false;
+    const body = mk('div', 'conflict-box');
+    body.append(mk('h3', '', msg.title), ...msg.lines.map((l, i) => mk('p', i === msg.lines.length - 1 ? 'conflict-q' : '', l)));
+    const actions = mk('div', 'conflict-actions');
+    const bMove = mk('button', 'primary', `MOVER PARA DEPOIS DE ${msg.blockName.toUpperCase()}`); bMove.type = 'button';
+    const bOther = mk('button', '', 'ESCOLHER OUTRO HORÁRIO'); bOther.type = 'button';
+    actions.append(bMove, bOther); body.append(actions);
+    if (mv.ok) bMove.title = `O bloco começaria às ${mv.start}, logo depois de "${msg.blockName}".`;
+    else { bMove.disabled = true; body.append(mk('p', 'conflict-why', 'Esta opção está desabilitada: ' + mv.reason)); }
+    dlg.append(body);
+    bMove.onclick = () => {
+      chosen = true; dlg.close();
+      const again = CF.moveAfter(state, { ...blk, ...data }, first.blockId); // reconfere com o estado atual
+      if (!again.ok) { handleConflict({ block: blk, data }); return; }
+      Object.assign(blk, data, { date: again.date, start: again.start, pending: false }); save(); render();
+      showNotice(`"${blk.title}" foi movido para ${again.start}, logo depois de "${msg.blockName}".`);
+    };
+    bOther.onclick = () => { chosen = true; dlg.close(); openBlockDialog({ id: blk.id, prefill: data }); }; // preserva o que já foi preenchido
+    dlg.addEventListener('close', () => {
+      if (chosen) return;
+      showNotice(isNew || blk.pending
+        ? `"${blk.title}" ficou como proposta pendente (laranja). Clique nele para resolver o conflito.`
+        : `Alteração cancelada: "${blk.title}" continua onde estava.`);
+    }, { once: true });
+    dlg.showModal();
   }
 
   /* ---------- diálogo do bloco (cadastro, detalhes e execução) ---------- */
@@ -273,7 +329,7 @@
   function openBlockDialog({ id, date, start, prefill }) {
     const dlg = $('#dlg-block');
     const b = id ? blockById(id) : null;
-    const v = b || { subject: '', title: '', date: date || C.isoDate(new Date()), start: start || '08:00', estimated: 1,
+    const v = b ? { ...b, ...(prefill || {}) } : { subject: '', title: '', date: date || C.isoDate(new Date()), start: start || '08:00', estimated: 1,
       config: { ...C.DEFAULT_CONFIG }, pdf: '', pages: '', studied: '', questions: null, hits: null, notes: '', completed: false, sessions: [],
       kind: 'estudo', reviewOf: null, priority: null, deadline: null, fixed: false, remainingMin: null, ...(prefill || {}) };
     const cfg = v.config;
@@ -282,7 +338,8 @@
     const real = b ? realizedFor(b) : null, pom = b ? C.sessionsPomodoros(b.sessions) : null;
     const subjects = [...new Set(state.blocks.map((x) => x.subject))];
     dlg.innerHTML = `<form method="dialog" id="block-form" novalidate>
-      <h3>${b ? 'Bloco de estudo' : 'Novo bloco de estudo'} ${b ? `<span class="chip st-${st}">${C.STATUS_LABEL[st]}</span>${active ? ' <span class="tag run">● Em andamento</span>' : ''}` : ''}</h3>
+      <h3>${b ? 'Bloco de estudo' : 'Novo bloco de estudo'} ${b ? (b.pending ? '<span class="chip pend">⚠ Pendente</span>' : `<span class="chip st-${st}">${C.STATUS_LABEL[st]}</span>${active ? ' <span class="tag run">● Em andamento</span>' : ''}`) : ''}</h3>
+      ${b && b.pending ? '<div class="errors">⚠ Proposta pendente: este horário conflita com outro bloco. Ajuste o dia/horário e salve para confirmar.</div>' : ''}
       <fieldset><legend>Planejamento</legend><div class="form-grid g2">
         <label>Matéria *<input name="subject" list="subjects" value="${esc(v.subject)}" required></label>
         <label>Assunto / título *<input name="title" value="${esc(v.title)}" required></label>
@@ -312,9 +369,9 @@
         <details style="margin-top:8px"><summary>Sessões (${v.sessions.length})</summary>${sessionsHtml(b)}</details></fieldset>` : ''}
       <div class="errors" id="block-errors"></div>
       <div class="actions sticky">
-        <div class="left">${b ? `<button type="button" id="b-timer" class="primary">${active ? '⏱ Abrir cronômetro' : (b.sessions.length ? '⏱ Retomar estudo (nova sessão)' : '⏱ Iniciar cronômetro')}</button>
-          ${b.kind !== 'revisao' ? '<button type="button" id="b-review">＋ Agendar revisão</button>' : ''}
-          <button type="button" id="b-toggle">${b.completed ? '↺ Reabrir bloco' : '✔ Marcar como concluído'}</button>
+        <div class="left">${b ? `<button type="button" id="b-timer" class="primary"${b.pending ? ' hidden' : ''}>${active ? '⏱ Abrir cronômetro' : (b.sessions.length ? '⏱ Retomar estudo (nova sessão)' : '⏱ Iniciar cronômetro')}</button>
+          ${b.kind !== 'revisao' && !b.pending ? '<button type="button" id="b-review">＋ Agendar revisão</button>' : ''}
+          <button type="button" id="b-toggle"${b.pending ? ' hidden' : ''}>${b.completed ? '↺ Reabrir bloco' : '✔ Marcar como concluído'}</button>
           <button type="button" id="b-delete" class="danger">Excluir</button>` : ''}</div>
         <button type="button" id="b-cancel">Fechar</button><button type="submit" class="primary">Salvar</button>
       </div></form>`;
@@ -382,13 +439,19 @@
       if (b) {
         const cur = blockById(b.id); // o estado pode ter sido trocado por outra aba enquanto o diálogo estava aberto
         if (!cur) { alert('Este bloco foi excluído em outra aba; nada foi salvo.'); return false; }
-        Object.assign(cur, data);
+        Object.assign(cur, data, { pending: false }); // salvar sem conflito confirma o bloco
       } else state.blocks.push(K.normalizeBlock({ id: uid(), completed: false, sessions: [], studied: '', questions: null, hits: null, notes: '', reviewOf: v.reviewOf || null, ...data }));
       save(); return true;
     };
     form.addEventListener('input', refresh);
     $('#b-cancel', dlg).onclick = () => dlg.close();
-    form.addEventListener('submit', (e) => { e.preventDefault(); const d = collect(); if (!d || !guardCapacity(d)) return; commit(d); dlg.close(); render(); });
+    // Regra de conflito: qualquer interseção (foco ou pausa) impede confirmar; abre o pop-up de resolução.
+    const conflictOf = (d) => CF.checkConflict(state, { ...(b ? blockById(b.id) || b : {}), ...d, id: b ? b.id : '__novo' }, { ignoreId: b ? b.id : '__novo' });
+    form.addEventListener('submit', (e) => {
+      e.preventDefault(); const d = collect(); if (!d || !guardCapacity(d)) return;
+      if (conflictOf(d).ok) { if (commit(d)) { dlg.close(); render(); } return; }
+      dlg.close(); handleConflict({ block: b ? (blockById(b.id) || b) : null, data: d });
+    });
     if (b) {
       $('#b-delete', dlg).onclick = () => {
         if (!confirm('Excluir este bloco e todo o seu histórico de sessões?')) return;
@@ -410,6 +473,7 @@
       };
       $('#b-timer', dlg).onclick = () => {
         const d = collect(); if (!d || !guardCapacity(d)) return;
+        if (!conflictOf(d).ok) { dlg.close(); handleConflict({ block: blockById(b.id) || b, data: d }); return; }
         commit(d); startTimer(b.id) && dlg.close(); render();
       };
     }
@@ -600,7 +664,7 @@
     sel.innerHTML = '<option value="">Todas</option>' + [...new Set(state.blocks.map((b) => b.subject))].sort().map((s) => `<option>${esc(s)}</option>`).join('');
     sel.value = cur; // sem atributo "selected": assim o botão Limpar volta para "Todas"
     const opts = { subject: sel.value, from: $('#f-from').value, to: $('#f-to').value, groupBy: $('#f-group').value };
-    const now = new Date(), r = C.consolidate(state.blocks, opts, now, state.session);
+    const now = new Date(), r = C.consolidate(state.blocks.filter((b) => !b.pending), opts, now, state.session);
     if (!r.blocks.length) { $('#report').innerHTML = '<p class="muted">Nenhum bloco encontrado para os filtros escolhidos.</p>'; return; }
     const lbl = opts.groupBy === 'week' ? (k) => `Semana de ${C.parseDate(k).toLocaleDateString('pt-BR')}` : (k) => k;
     const row = (g, label, cls = '') => `<tr class="${cls}"><td>${esc(label)}</td><td>${g.blocks.length}</td><td>${dur(g.plannedStudyMin * C.MIN)}</td><td>${dur(g.plannedRestMin * C.MIN)}</td>

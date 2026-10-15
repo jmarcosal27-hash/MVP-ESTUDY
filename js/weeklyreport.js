@@ -42,7 +42,7 @@
    * agendados na semana ou estudados nela (sessões iniciadas na semana).
    */
   function buildWeeklyReport(state, weekMonday, nowMs) {
-    const s = Cap.normalizeState(state);
+    const s0 = Cap.normalizeState(state), s = { ...s0, blocks: s0.blocks.filter((b) => !b.pending) }; // proposta pendente não entra no relatório
     const now = new Date(nowMs);
     const dates = Cap.weekDates(weekMonday), weekEnd = dates[6];
     const inWeek = (d) => dates.includes(d);
