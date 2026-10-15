@@ -1,9 +1,10 @@
-===== MENSAGEM 1 (enviar junto com o arquivo estudy.html) =====
+===== MENSAGEM (colar no WhatsApp) =====
 *TESTE DO ESTUDY - versão sprint 3* 📚
 
 Oi! Agora o teste é guiado DENTRO do app, bem mais fácil:
 
-1) Salve o estudy.html e abra com duplo clique no Chrome (use sempre o mesmo navegador e não limpe os dados dele).
+1) Abra este link no Chrome: https://jmarcosal27-hash.github.io/MVP-ESTUDY/
+   (use SEMPRE o mesmo navegador e o mesmo link, e não limpe os dados do navegador, senão perde tudo). Se quiser, salve o link nos favoritos.
 2) Clique no botão *🧪 Roteiro de teste* (barra de cima). Abre um painel com os passos.
 3) Siga os passos. Em cada um marque *✅ Funcionou* ou *❌ Problema*. Se der problema, escreva o que aconteceu e escolha a gravidade (A impede de usar / B atrapalha / C incômodo).
 4) Qualquer outra coisa que te incomodar: "Nova observação livre" no fim do painel.
@@ -13,7 +14,7 @@ Oi! Agora o teste é guiado DENTRO do app, bem mais fácil:
 - MODO FOCO: ao iniciar o cronômetro, o app vira uma tela cheia só com o relógio (foco, tempo extra e pausa), e o calendário fica travado até você clicar em Encerrar. O alarme aparece por cima. Passos na parte 2 do roteiro.
 - REGRA DE CONFLITO: o bloco reserva o período todo (foco + pausas). Se cair em cima de outro (inclusive numa pausa), o bloco novo fica laranja com ⚠ e aparece o pop-up com 'MOVER PARA DEPOIS DE...' ou 'ESCOLHER OUTRO HORÁRIO'. O roteiro (parte 1) tem os passos.
 - Alarme forte e repetido quando o pomodoro/pausa acaba (dá pra silenciar). Teste em Configurações > "Testar alarme".
-- Notificação no canto da tela quando você está em outra aba/janela (aceite o pedido de permissão quando aparecer).
+- Notificação no canto da tela quando você está em outra aba/janela (aceite o pedido de permissão do navegador quando aparecer; no link a notificação funciona).
 - Cadastro de bloco mais simples, com a seção de pomodoros já aberta e valores 25/5/4/15 de início.
 - Sem "Pomodoro padrão" e sem "Margem disponível".
 
