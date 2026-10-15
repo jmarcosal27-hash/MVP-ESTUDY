@@ -34,6 +34,11 @@
       ['2.7', 'Clique "Iniciar pausa" e deixe acabar.', 'Alarme de fim de pausa; fica "aguardando você"; nada é contado até "Iniciar foco".'],
       ['2.8', 'Inicie outro foco e clique "Encerrar" antes de zerar.', 'Salva como ciclo parcial.'],
       ['2.9', 'Abra o bloco.', 'Mostra foco + extra = total, pomodoros completos e parciais. O bloco NÃO conclui sozinho.'],
+      ['2.10', 'Com o cronômetro rodando, olhe a tela inteira.', 'MODO FOCO: o cronômetro ocupa a tela toda, com a etapa, a barra de progresso e o que vem depois.'],
+      ['2.11', 'Tente clicar no calendário/menus e apertar Tab durante o foco, o tempo extra e a pausa.', 'Nada do calendário responde (nem pelo teclado). Só dá para Pausar/Retomar, iniciar pausa/foco, Tela cheia do navegador e Encerrar.'],
+      ['2.12', 'Zere o foco com o modo foco ligado.', 'O alarme e o aviso aparecem POR CIMA da tela cheia (com "Silenciar alarme").'],
+      ['2.13', 'Clique em "Encerrar" e confirme.', 'O modo foco acaba e o calendário volta a funcionar; o tempo é salvo no bloco.'],
+      ['2.14', 'Aperte F5 no meio de um pomodoro.', 'Volta direto no modo foco, com a contagem certa.'],
     ] },
     { id: '3', title: 'Resultados (questões e acertos)', items: [
       ['3.1', '10 questões, acertos vazio.', '"Resultado pendente" (não 0%).'],

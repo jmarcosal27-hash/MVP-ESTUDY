@@ -5,7 +5,7 @@
   const K = window.Capacity;
   const A = window.Alarm;
   const CF = window.Conflict;
-  const APP_VERSION = 'sprint 2 · 15/10/2026';
+  const APP_VERSION = 'sprint 3 · 15/10/2026';
   const KEY = 'estudy.mvp.v1';
   const HPX = 52; // altura de uma hora no calendário (deve coincidir com --hour no CSS)
   const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -493,7 +493,9 @@
     }
     const b = blockById(blockId);
     state.session = C.startSession(blockId, b.config, Date.now());
-    save(); return true;
+    save();
+    try { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) { /* sem tela cheia: o modo foco continua valendo */ }
+    return true;
   }
   function timerAction(act) {
     const s = state.session; if (!s) return;
@@ -503,7 +505,7 @@
     else if (act === 'resume') C.resume(s, now);
     else if (act === 'break') C.startBreak(s, now);
     else if (act === 'focus') C.startFocus(s, now);
-    else if (act === 'open') return openBlockDialog({ id: s.blockId });
+    else if (act === 'fullscreen') return toggleBrowserFullscreen();
     else if (act === 'finish') {
       C.advance(s, now);
       const lt = C.liveTotals(s, now);
@@ -514,11 +516,25 @@
     }
     save(); handleAlert(); render();
   }
+  /* ---------- modo foco: com a sessão ativa, o cronômetro ocupa a tela e o resto do app fica travado ---------- */
+  const FOCUS_LOCKED = ['header.topbar', 'main', '#chat-drawer', '#guide-drawer']; // "inert": sem clique, sem Tab, fora do leitor de tela
+  function setFocusMode(on) {
+    document.body.classList.toggle('focus-mode', on);
+    FOCUS_LOCKED.forEach((sel) => { const e = $(sel); if (e) e.inert = on; });
+    const t = $('#timer'); if (t) { t.setAttribute('role', on ? 'dialog' : 'region'); t.setAttribute('aria-modal', on ? 'true' : 'false'); }
+    if (!on && document.fullscreenElement) { try { document.exitFullscreen(); } catch (e) { /* ignora */ } }
+  }
+  function toggleBrowserFullscreen() {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+    } catch (e) { /* navegador não permitiu */ }
+  }
   function renderTimer() {
     const el = $('#timer'), s = state.session;
-    if (!s) { el.hidden = true; ui.timerSig = ''; return; }
+    if (!s) { el.hidden = true; ui.timerSig = ''; setFocusMode(false); return; }
     const b = blockById(s.blockId);
-    if (!b) { state.session = null; save(); el.hidden = true; return; }
+    if (!b) { state.session = null; save(); el.hidden = true; setFocusMode(false); return; }
     const now = Date.now(), sig = [s.id, s.phase, s.state].join('|');
     if (sig !== ui.timerSig) {
       ui.timerSig = sig;
@@ -529,10 +545,11 @@
       if (s.state === 'awaiting') buttons = btn('focus', '▶ Iniciar foco', 'primary');
       else if (s.state === 'paused') buttons = btn('resume', '▶ Retomar', 'primary') + (focusLike ? btn('break', `☕ Pausa ${kind}`) : btn('focus', 'Iniciar foco'));
       else buttons = btn('pause', '⏸ Pausar') + (focusLike ? btn('break', `☕ Iniciar pausa ${kind}`) : btn('focus', 'Pular pausa e iniciar foco'));
-      buttons += btn('finish', '⏹ Encerrar', 'danger') + btn('open', 'Bloco');
+      buttons += btn('finish', '⏹ Encerrar', 'danger') + btn('fullscreen', '⛶ Tela cheia do navegador');
       el.className = `timer ${s.phase === 'extra' ? 'extra' : brk ? 'rest' : ''}`;
       el.setAttribute('aria-label', 'Cronômetro de estudo');
       el.innerHTML = `<div class="muted" id="t-block"></div><div class="phase" id="t-phase" role="status" aria-live="polite"></div><div class="clock" id="t-clock"></div>
+        <div class="t-bar" aria-hidden="true"><div id="t-fill"></div></div><div class="t-next" id="t-next"></div>
         <div class="row">${buttons}</div><div class="info" id="t-info"></div>`;
       $('#t-block', el).textContent = `${b.subject} — ${b.title}`;
     }
@@ -548,7 +565,17 @@
     $('#t-info', el).innerHTML = `<span>🍅 Concluídos: <b>${prev.complete + s.completed}</b> de <b>${b.estimated}</b> estimados</span>
       <span>Estudo total no bloco: <b>${dur(tot.studyMs)}</b> (extra ${dur(tot.extraMs)})</span>
       <span>Nesta sessão: foco ${dur(lt.focusMs)} · extra ${dur(lt.extraMs)} · descanso ${dur(lt.restMs)} · interrupções ${dur(lt.interruptMs)}</span>`;
+    // barra de progresso da etapa e o que vem depois
+    const dur0 = s.phase === 'extra' || s.state === 'awaiting' ? 0 : C.phaseDuration(s);
+    const pct = s.phase === 'extra' ? 100 : s.state === 'awaiting' ? 100 : Math.min(100, Math.round((el0 / dur0) * 100));
+    const fill = $('#t-fill', el); fill.style.width = pct + '%'; fill.className = s.phase === 'extra' ? 'extra' : C.isBreak(s.phase) ? 'rest' : '';
+    const nextKind = C.nextBreakKind(s) === 'long' ? 'longa' : 'curta', nextMin = nextKind === 'longa' ? s.cfg.longMin : s.cfg.shortMin;
+    $('#t-next', el).textContent = s.state === 'awaiting' ? 'Clique em "Iniciar foco" quando estiver pronto.'
+      : C.isBreak(s.phase) ? 'Depois da pausa: iniciar o próximo foco.'
+      : s.phase === 'extra' ? `Tempo extra contando como estudo. Quando quiser: pausa ${nextKind} de ${nextMin} min.`
+      : `Depois do foco: pausa ${nextKind} de ${nextMin} min.`;
     el.hidden = false;
+    setFocusMode(true);
     document.title = `${clock} · ${label} – Estudy`;
   }
 

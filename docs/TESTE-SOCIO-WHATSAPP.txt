@@ -1,5 +1,5 @@
 ===== MENSAGEM 1 (enviar junto com o arquivo estudy.html) =====
-*TESTE DO ESTUDY - versão sprint 2* 📚
+*TESTE DO ESTUDY - versão sprint 3* 📚
 
 Oi! Agora o teste é guiado DENTRO do app, bem mais fácil:
 
@@ -10,6 +10,7 @@ Oi! Agora o teste é guiado DENTRO do app, bem mais fácil:
 5) Quando terminar (ou a cada dia): clique em *📋 Copiar feedback (WhatsApp)* e cole aqui pra mim.
 
 *Novidades pra você avaliar:*
+- MODO FOCO: ao iniciar o cronômetro, o app vira uma tela cheia só com o relógio (foco, tempo extra e pausa), e o calendário fica travado até você clicar em Encerrar. O alarme aparece por cima. Passos na parte 2 do roteiro.
 - REGRA DE CONFLITO: o bloco reserva o período todo (foco + pausas). Se cair em cima de outro (inclusive numa pausa), o bloco novo fica laranja com ⚠ e aparece o pop-up com 'MOVER PARA DEPOIS DE...' ou 'ESCOLHER OUTRO HORÁRIO'. O roteiro (parte 1) tem os passos.
 - Alarme forte e repetido quando o pomodoro/pausa acaba (dá pra silenciar). Teste em Configurações > "Testar alarme".
 - Notificação no canto da tela quando você está em outra aba/janela (aceite o pedido de permissão quando aparecer).
