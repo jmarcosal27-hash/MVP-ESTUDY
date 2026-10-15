@@ -114,3 +114,37 @@ body.has-timer .chat-drawer { bottom: 292px; }
 .unplaced { background: var(--red-bg); color: var(--red); border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
 
 .block:focus-visible, button:focus-visible, .tab:focus-visible { outline: 3px solid var(--accent-text); outline-offset: 2px; }
+
+/* ---- Sprint 1: cadastro enxuto, painel limpo, roteiro de teste ---- */
+.topbar nav { display: flex; gap: 6px; flex-wrap: wrap; }
+.topbar h1 small { font-size: 11px; font-weight: 400; margin-left: 6px; }
+.form-grid.g2 { grid-template-columns: 1fr 1fr; }
+@media (max-width: 560px) { .form-grid.g2 { grid-template-columns: 1fr; } }
+.form-grid .wide { grid-column: 1 / -1; }
+.pomo-box { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.pomo-box summary { font-weight: 600; cursor: pointer; }
+.actions.sticky { position: sticky; bottom: -16px; background: var(--surface); padding: 10px 0 4px; margin-top: 14px; border-top: 1px solid var(--line); z-index: 2; }
+details.more { margin: 0 0 8px; }
+details.more summary { cursor: pointer; color: var(--accent-text); font-size: 13px; padding: 2px 0; }
+.stat { min-width: 120px; }
+#banner-silence { margin-left: auto; }
+.chat-drawer.guide { padding: 10px; overflow: auto; display: block; }
+.tg { display: grid; gap: 8px; font-size: 13px; }
+.tg-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tg-progress { height: 8px; background: var(--line); border-radius: 6px; overflow: hidden; }
+.tg-bar { height: 100%; background: var(--accent-solid); transition: width .2s; }
+.tg-sum { font-weight: 600; }
+.tg-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.tg-copied { color: var(--green); min-height: 1.2em; font-weight: 600; }
+.tg-part { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.tg-part > summary { cursor: pointer; font-weight: 600; }
+.tg-item { border-top: 1px dashed var(--line); padding: 8px 0; display: grid; gap: 4px; }
+.tg-item.ok { background: color-mix(in srgb, var(--green-bg) 55%, transparent); }
+.tg-item.fail { background: color-mix(in srgb, var(--red-bg) 55%, transparent); }
+.tg-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.tg-btns button { padding: 4px 10px; }
+.tg-btns .on-ok { background: var(--green-bg); color: var(--green); border-color: var(--green); font-weight: 700; }
+.tg-btns .on-fail { background: var(--red-bg); color: var(--red); border-color: var(--red); font-weight: 700; }
+.tg-part input, .tg-part textarea, .tg-part select { margin: 4px 0; }
+.tg-note { display: flex; justify-content: space-between; gap: 6px; align-items: flex-start; border-top: 1px dashed var(--line); padding: 4px 0; }
+.chat-drawer.guide[hidden], .chat-drawer[hidden] { display: none !important; }

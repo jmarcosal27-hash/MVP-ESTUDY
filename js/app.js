@@ -3,6 +3,8 @@
   'use strict';
   const C = window.Core;
   const K = window.Capacity;
+  const A = window.Alarm;
+  const APP_VERSION = 'sprint 1 · 15/10/2026';
   const KEY = 'estudy.mvp.v1';
   const HPX = 52; // altura de uma hora no calendário (deve coincidir com --hour no CSS)
   const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -24,46 +26,36 @@
     return fresh();
   }
   let state = load();
+  state.settings.config = { ...C.DEFAULT_CONFIG }; // valores FIXOS para blocos novos (25/5/4/15); cada bloco é customizado no cadastro
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* sem persistência */ } };
   const ui = { weekStart: C.mondayOf(new Date()), view: 'calendar', drag: null, minuteKey: '', timerSig: '' };
   const blockById = (id) => state.blocks.find((b) => b.id === id);
 
-  /* ---------- áudio e avisos ---------- */
-  let audio = null;
-  function unlockAudio() {
-    try {
-      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-      if (audio.state === 'suspended') audio.resume();
-    } catch (e) { /* sem áudio */ }
-  }
-  function beep(kind) {
-    if (!audio) return;
-    const notes = kind === 'focus_end' ? [880, 880, 880] : [523, 659, 784];
-    notes.forEach((f, i) => {
-      const o = audio.createOscillator(), g = audio.createGain();
-      o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(audio.destination);
-      const t = audio.currentTime + i * 0.35;
-      g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-      o.start(t); o.stop(t + 0.32);
-    });
-  }
+  /* ---------- alarme e avisos (ver js/alarm.js) ---------- */
+  const unlockAudio = () => A.unlock();
   const ALERT_TEXT = {
-    focus_end: '⏰ Foco encerrado! O tempo extra já está sendo contado como estudo. Continue, pause, inicie a pausa ou encerre a sessão.',
-    break_end: '☕ Pausa encerrada! O próximo foco só começa quando você clicar em "Iniciar foco".',
+    focus_end: '⏰ POMODORO ENCERRADO! O tempo extra já está sendo contado como estudo. Continue, pause, inicie a pausa ou encerre a sessão.',
+    break_end: '☕ PAUSA ENCERRADA! O próximo foco só começa quando você clicar em "Iniciar foco".',
   };
-  function showBanner(type) {
-    const el = $('#alert-banner');
-    el.innerHTML = `<span>${esc(ALERT_TEXT[type])}</span><button id="banner-close">Entendi</button>`;
-    el.hidden = false;
+  const ALERT_TITLE = { focus_end: 'POMO ENCERROU!', break_end: 'PAUSA ENCERROU!' };
+  function showBanner(type, soundBlocked) {
+    const el = $('#alert-banner'); el.textContent = '';
+    const sp = document.createElement('span'); sp.textContent = ALERT_TEXT[type] + (soundBlocked ? ' (O navegador bloqueou o som: clique em qualquer lugar da página para liberar.)' : '');
+    const sil = document.createElement('button'); sil.id = 'banner-silence'; sil.textContent = '🔕 Silenciar alarme';
+    const ok = document.createElement('button'); ok.id = 'banner-close'; ok.textContent = 'Entendi';
+    el.append(sp, sil, ok); el.hidden = false;
   }
+  const alarmSeconds = () => (Number.isFinite(state.settings.alarmSec) ? state.settings.alarmSec : A.DEFAULT_SECONDS);
+  const silenceAlarm = () => { A.stop(); A.stopFlash(); };
   function handleAlert() {
     const s = state.session;
     if (!s || s.alertSeq <= s.alertAck) return;
     s.alertAck = s.alertSeq; save();
-    beep(s.alert); showBanner(s.alert);
-    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-      try { new Notification('Estudy', { body: ALERT_TEXT[s.alert] }); } catch (e) { /* ignora */ }
-    }
+    const played = A.play(s.alert, alarmSeconds());
+    showBanner(s.alert, !played || !A.isReady());
+    const away = document.hidden || !document.hasFocus();
+    if (away) A.flashTitle(ALERT_TITLE[s.alert]);
+    if (away || !A.isReady()) A.notify('Estudy · ' + ALERT_TITLE[s.alert], ALERT_TEXT[s.alert].replace(/^[^ ]+ /, ''));
   }
 
   /* ---------- calendário ---------- */
@@ -117,19 +109,20 @@
     const m = (x) => dur(x * C.MIN);
     const lim = c.limitMin === null;
     const ov = state.weekOverrides[monday] && state.weekOverrides[monday].limitMin !== undefined;
-    const cards = [
-      [`Limite semanal${ov ? ' (exceção da semana)' : ''}`, lim ? 'sem limite' : m(c.limitMin)],
-      ['Carga planejada (estudo líquido)', m(c.plannedNetMin)],
-      [c.excessMin > 0 ? 'Excesso de planejamento' : 'Saldo para planejar', lim ? '—' : (c.excessMin > 0 ? m(c.excessMin) : m(c.balanceMin))],
-      ['Estudado na semana', m(Math.round(c.realizedMin))],
-      ['Restante previsto', m(c.remainingMin)],
-      ['Projeção da semana', m(Math.round(c.projectionMin))],
-      [c.projectedExcessMin > 0 ? 'Excesso projetado' : 'Margem disponível', lim ? '—' : (c.projectedExcessMin > 0 ? m(Math.round(c.projectedExcessMin)) : m(Math.round(c.marginMin)))],
-      ['Livre na agenda (daqui p/ frente)', m(c.freeAgendaMin)],
-    ];
-    const bad = new Set(['Excesso de planejamento', 'Excesso projetado']);
-    $('#capacity').innerHTML = cards.map(([l, v]) => `<div class="stat${bad.has(l) ? ' bad' : ''}"><span class="muted">${l}</span><b>${v}</b></div>`).join('') +
+    const card = (l, v, bad) => `<div class="stat${bad ? ' bad' : ''}"><span class="muted">${l}</span><b>${v}</b></div>`;
+    const over = c.excessMin > 0, pover = c.projectedExcessMin > 0;
+    // principais: o que o estudante olha todo dia
+    $('#capacity').innerHTML =
+      card(`Limite semanal${ov ? ' (só esta semana)' : ''}`, lim ? 'sem limite' : m(c.limitMin)) +
+      card('Planejado (estudo)', m(c.plannedNetMin)) +
+      card(over ? 'Excesso de planejamento' : 'Ainda cabe', lim ? '—' : (over ? m(c.excessMin) : m(c.balanceMin)), over) +
+      card('Estudado na semana', m(Math.round(c.realizedMin))) +
       (c.warnings.length ? `<div class="cap-warn">${c.warnings.map((w) => `⚠ ${esc(WARN[w])}`).join('<br>')}</div>` : '');
+    // detalhes: ficam recolhidos para não poluir a tela
+    const more = [card('Restante previsto', m(c.remainingMin)), card('Projeção da semana', m(Math.round(c.projectionMin)))];
+    if (pover) more.push(card('Excesso projetado', m(Math.round(c.projectedExcessMin)), true));
+    more.push(card('Livre na agenda (daqui p/ frente)', m(c.freeAgendaMin)));
+    $('#capacity-more').innerHTML = more.join('');
   }
 
   /** Blocos que se sobrepõem ficam lado a lado (colunas) em vez de um cobrir o outro. */
@@ -281,7 +274,7 @@
     const dlg = $('#dlg-block');
     const b = id ? blockById(id) : null;
     const v = b || { subject: '', title: '', date: date || C.isoDate(new Date()), start: start || '08:00', estimated: 1,
-      config: { ...state.settings.config }, pdf: '', pages: '', studied: '', questions: null, hits: null, notes: '', completed: false, sessions: [],
+      config: { ...C.DEFAULT_CONFIG }, pdf: '', pages: '', studied: '', questions: null, hits: null, notes: '', completed: false, sessions: [],
       kind: 'estudo', reviewOf: null, priority: null, deadline: null, fixed: false, remainingMin: null, ...(prefill || {}) };
     const cfg = v.config;
     const st = b ? C.blockStatus(b, new Date()) : null;
@@ -290,41 +283,35 @@
     const subjects = [...new Set(state.blocks.map((x) => x.subject))];
     dlg.innerHTML = `<form method="dialog" id="block-form" novalidate>
       <h3>${b ? 'Bloco de estudo' : 'Novo bloco de estudo'} ${b ? `<span class="chip st-${st}">${C.STATUS_LABEL[st]}</span>${active ? ' <span class="tag run">● Em andamento</span>' : ''}` : ''}</h3>
-      <fieldset><legend>Planejamento</legend><div class="form-grid">
+      <fieldset><legend>Planejamento</legend><div class="form-grid g2">
         <label>Matéria *<input name="subject" list="subjects" value="${esc(v.subject)}" required></label>
         <label>Assunto / título *<input name="title" value="${esc(v.title)}" required></label>
-        <label>Dia *<input type="date" name="date" value="${esc(v.date)}" required></label>
-        <label>Início *<input type="time" name="start" value="${esc(v.start)}" required></label>
-        <label>Pomodoros estimados *<input type="number" name="estimated" min="1" step="1" value="${v.estimated}" required></label>
-        <label>PDF (nome ou link)<input name="pdf" value="${esc(v.pdf)}"></label>
-        <label>Páginas / trecho previsto<input name="pages" value="${esc(v.pages)}"></label>
+        <label>Prioridade<select name="priority"><option value="">Sem prioridade</option>${[['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, l]) => `<option value="${k}"${v.priority === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
         <label>Tipo<select name="kind"><option value="estudo"${v.kind === 'estudo' ? ' selected' : ''}>Estudo</option><option value="revisao"${v.kind === 'revisao' ? ' selected' : ''}>Revisão</option></select></label>
-        <label>Prioridade<select name="priority"><option value="">—</option>${[['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, l]) => `<option value="${k}"${v.priority === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-        <label>Prazo (opcional)<input type="date" name="deadline" value="${esc(v.deadline || '')}"></label>
-        <label class="check"><input type="checkbox" name="fixed"${v.fixed ? ' checked' : ''}> Horário obrigatório (não mover automaticamente)</label>
-        ${b ? `<label>Restante previsto (min de estudo)<input name="remaining" inputmode="numeric" placeholder="automático" value="${esc(v.remainingMin ?? '')}"></label>` : ''}
+        <label>Data *<input type="date" name="date" value="${esc(v.date)}" required></label>
+        <label>Início *<input type="time" name="start" value="${esc(v.start)}" required></label>
       </div>
       <datalist id="subjects">${subjects.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
-      <details style="margin-top:8px"><summary>Pomodoro deste bloco (copiado do padrão; ajuste se precisar)</summary><div class="form-grid" style="margin-top:8px">
+      <details open class="pomo-box"><summary>🍅 Pomodoros deste bloco</summary><div class="form-grid g2" style="margin-top:8px">
+        <label>Pomodoros estimados *<input type="number" name="estimated" min="1" step="1" value="${v.estimated}" required></label>
         <label>Foco (min)<input type="number" name="focusMin" min="1" step="1" value="${cfg.focusMin}"></label>
         <label>Pausa curta (min)<input type="number" name="shortMin" min="1" step="1" value="${cfg.shortMin}"></label>
         <label>Pomodoros até a pausa longa<input type="number" name="longEvery" min="1" step="1" value="${cfg.longEvery}"></label>
         <label>Pausa longa (min)<input type="number" name="longMin" min="1" step="1" value="${cfg.longMin}"></label>
-        <div class="wide"><button type="button" id="use-default">Usar configuração padrão atual</button></div>
       </div></details>
       <div class="preview" id="plan-preview"></div><div class="preview" id="cap-preview"></div></fieldset>
-      ${b ? `<fieldset><legend>Execução</legend><div class="form-grid">
-        <label class="wide">Conteúdo / páginas efetivamente estudados<input name="studied" value="${esc(v.studied)}"></label>
+      ${b ? `<fieldset><legend>Execução</legend><div class="form-grid g2">
+        <label class="wide">Link do material (PDF, aula…)<input name="pdf" value="${esc(v.pdf)}" placeholder="https://… ou nome do arquivo"></label>
         <label>Questões respondidas<input name="questions" inputmode="numeric" value="${esc(v.questions ?? '')}"></label>
         <label>Acertos<input name="hits" inputmode="numeric" value="${esc(v.hits ?? '')}"></label>
-        <div class="field">Erros / Taxa de acerto<b id="res-calc"></b></div>
+        <div class="field wide">Erros / Taxa de acerto<b id="res-calc"></b></div>
         <label class="wide">Observações (dificuldades, conteúdo pendente)<textarea name="notes" rows="3">${esc(v.notes)}</textarea></label></div>
         <div class="preview"><b>Realizado:</b> foco regular ${dur(real.focusMs)} + extra ${dur(real.extraMs)} = <b>${dur(real.studyMs)}</b> estudados
           · descanso ${dur(real.restMs)} · interrupções ${dur(real.interruptMs)}<br>
           Pomodoros completos: ${pom.complete} de ${v.estimated} estimados · ciclos parciais: ${pom.partial}</div>
         <details style="margin-top:8px"><summary>Sessões (${v.sessions.length})</summary>${sessionsHtml(b)}</details></fieldset>` : ''}
       <div class="errors" id="block-errors"></div>
-      <div class="actions">
+      <div class="actions sticky">
         <div class="left">${b ? `<button type="button" id="b-timer" class="primary">${active ? '⏱ Abrir cronômetro' : (b.sessions.length ? '⏱ Retomar estudo (nova sessão)' : '⏱ Iniciar cronômetro')}</button>
           ${b.kind !== 'revisao' ? '<button type="button" id="b-review">＋ Agendar revisão</button>' : ''}
           <button type="button" id="b-toggle">${b.completed ? '↺ Reabrir bloco' : '✔ Marcar como concluído'}</button>
@@ -336,10 +323,10 @@
 
     const gatherPlan = () => ({
       subject: read('subject').trim(), title: read('title').trim(), date: read('date'), start: read('start'),
-      estimated: numVal(read('estimated')), pdf: read('pdf').trim(), pages: read('pages').trim(),
+      estimated: numVal(read('estimated')),
       config: { focusMin: numVal(read('focusMin')), shortMin: numVal(read('shortMin')), longEvery: numVal(read('longEvery')), longMin: numVal(read('longMin')) },
-      kind: read('kind') || 'estudo', priority: read('priority') || null, deadline: read('deadline') || null,
-      fixed: !!(form.elements.fixed && form.elements.fixed.checked),
+      kind: read('kind') || 'estudo', priority: read('priority') || null,
+      ...(form.elements.pdf ? { pdf: read('pdf').trim() } : {}), // campos fora da tela (páginas, prazo, obrigatório, restante) são preservados
     });
     // Efeito do bloco sobre a capacidade da semana de destino (sem salvar nada).
     const capInfo = (data) => {
@@ -385,9 +372,8 @@
       if (b) {
         const r = C.validateResult(read('questions'), read('hits'));
         errs.push(...r.errors);
-        Object.assign(data, { studied: read('studied').trim(), notes: read('notes').trim(), questions: r.questions, hits: r.hits });
-        const rm = parseCountLocal(read('remaining'));
-        if (rm.error) errs.push('Restante previsto: use apenas números inteiros não negativos.'); else data.remainingMin = rm.value;
+        Object.assign(data, { notes: read('notes').trim(), questions: r.questions, hits: r.hits });
+
       }
       $('#block-errors', dlg).innerHTML = errs.map((m) => `<div>${esc(m)}</div>`).join('');
       return errs.length ? null : data;
@@ -401,7 +387,6 @@
       save(); return true;
     };
     form.addEventListener('input', refresh);
-    $('#use-default', dlg).onclick = () => { Object.entries(state.settings.config).forEach(([k, val]) => { form.elements[k].value = val; }); refresh(); };
     $('#b-cancel', dlg).onclick = () => dlg.close();
     form.addEventListener('submit', (e) => { e.preventDefault(); const d = collect(); if (!d || !guardCapacity(d)) return; commit(d); dlg.close(); render(); });
     if (b) {
@@ -435,7 +420,7 @@
   /* ---------- cronômetro ---------- */
   function startTimer(blockId) {
     unlockAudio();
-    if ('Notification' in window && Notification.permission === 'default') { try { Notification.requestPermission(); } catch (e) { /* ignora */ } }
+    if (A.permission() === 'default') A.requestPermission(); // pede a permissão de notificação no primeiro cronômetro
     if (state.session) {
       if (state.session.blockId === blockId) { $('#timer').scrollIntoView({ block: 'end' }); return true; }
       const other = blockById(state.session.blockId);
@@ -449,7 +434,7 @@
   function timerAction(act) {
     const s = state.session; if (!s) return;
     const now = Date.now();
-    unlockAudio();
+    unlockAudio(); silenceAlarm(); // qualquer ação sua no cronômetro silencia o alarme
     if (act === 'pause') C.pause(s, now);
     else if (act === 'resume') C.resume(s, now);
     else if (act === 'break') C.startBreak(s, now);
@@ -505,15 +490,14 @@
 
   /* ---------- configurações ---------- */
   function openSettings() {
-    const dlg = $('#dlg-settings'), c = state.settings.config, av = state.settings.availability, cl = state.settings.closing;
+    const dlg = $('#dlg-settings'), av = state.settings.availability, cl = state.settings.closing;
     dlg.innerHTML = `<form method="dialog" id="set-form" novalidate><h3>Configurações</h3>
-      <fieldset><legend>Pomodoro padrão</legend>
-      <p class="muted">Vale para novos blocos. Blocos e sessões já criados mantêm a configuração que tinham.</p>
-      <div class="form-grid">
-        <label>Foco (min)<input type="number" name="focusMin" min="1" step="1" value="${c.focusMin}"></label>
-        <label>Pausa curta (min)<input type="number" name="shortMin" min="1" step="1" value="${c.shortMin}"></label>
-        <label>Pomodoros até a pausa longa<input type="number" name="longEvery" min="1" step="1" value="${c.longEvery}"></label>
-        <label>Pausa longa (min)<input type="number" name="longMin" min="1" step="1" value="${c.longMin}"></label></div></fieldset>
+      <fieldset><legend>Alarme e notificações</legend>
+      <p class="muted">Quando o pomodoro ou a pausa acaba, o app toca o alarme, pisca o título da aba e mostra uma notificação no canto da tela.</p>
+      <div class="form-grid"><label>Duração do alarme<select name="alarmSec">${[[10, '10 segundos'], [30, '30 segundos'], [60, '1 minuto'], [300, 'Até eu silenciar (máx. 5 min)']].map(([k, l]) => `<option value="${k}"${alarmSeconds() === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+        <div class="field">Notificação no canto da tela<b id="notif-status"></b></div></div>
+      <div class="actions" style="justify-content:flex-start"><button type="button" id="alarm-test">🔔 Testar alarme</button><button type="button" id="alarm-stop">🔕 Parar</button><button type="button" id="notif-enable">Ativar notificações</button></div>
+      <p class="muted" id="notif-hint"></p></fieldset>
       <fieldset><legend>Limite semanal e disponibilidade (rotina padrão)</legend>
       <p class="muted">O limite conta só tempo de <b>estudo</b> (sem pausas). Não é meta de preenchimento. Exceções de uma semana ficam em "Semana" no calendário e não alteram esta rotina.</p>
       <div class="form-grid"><label>Limite semanal de estudo (horas líquidas; vazio = sem limite)<input name="limitH" inputmode="decimal" value="${minToHours(state.settings.weeklyLimitMin)}"></label>
@@ -530,17 +514,25 @@
     $('#set-cancel', dlg).onclick = () => dlg.close();
     f.addEventListener('submit', (e) => {
       e.preventDefault();
-      const cfg = {}; ['focusMin', 'shortMin', 'longEvery', 'longMin'].forEach((k) => { cfg[k] = numVal(f.elements[k].value); });
-      const errs = C.validateConfig(cfg);
+      const errs = [];
       const lim = hoursToMin(f.elements.limitH.value); if (lim.error) errs.push('Limite semanal: informe horas (ex.: 20 ou 22,5) ou deixe vazio.');
       const days = {};
       for (let d = 1; d <= 7; d++) { const r = parseRanges(f.elements['day' + d].value, WD[d]); if (r.error) errs.push(r.error); else if (r.ranges.length) days[d] = r.ranges; }
       const un = parseUnavail(f.elements.unavail.value); if (un.error) errs.push(un.error);
       $('#set-errors', dlg).innerHTML = errs.map((m) => `<div>${esc(m)}</div>`).join('');
       if (errs.length) return;
-      Object.assign(state.settings, { config: cfg, weeklyLimitMin: lim.value, availability: { days, unavailable: un.list }, closing: { day: Number(f.elements.closeDay.value), time: f.elements.closeTime.value || '21:00' } });
+      Object.assign(state.settings, { alarmSec: Number(f.elements.alarmSec.value), weeklyLimitMin: lim.value, availability: { days, unavailable: un.list }, closing: { day: Number(f.elements.closeDay.value), time: f.elements.closeTime.value || '21:00' } });
       save(); dlg.close(); render();
     });
+    const notifStatus = () => {
+      const p = A.permission(), t = { granted: 'Ativadas ✓', denied: 'Bloqueadas (libere nas configurações do navegador)', default: 'Ainda não ativadas', unsupported: 'Não suportadas neste navegador' }[p];
+      $('#notif-status', dlg).textContent = t;
+      $('#notif-hint', dlg).textContent = location.protocol === 'file:' ? 'Abrindo o arquivo direto do computador, alguns navegadores bloqueiam notificações. Se não aparecerem, avise o dono do projeto (o som e o título piscando continuam funcionando).' : '';
+    };
+    notifStatus();
+    $('#alarm-test', dlg).onclick = () => { unlockAudio(); A.play('focus_end', 6); A.notify('Estudy · teste', 'Se você viu isto, as notificações estão funcionando.'); };
+    $('#alarm-stop', dlg).onclick = silenceAlarm;
+    $('#notif-enable', dlg).onclick = () => { A.requestPermission().then(notifStatus); };
     $('#demo', dlg).onclick = () => { loadDemo(); dlg.close(); render(); };
     $('#wipe', dlg).onclick = () => { if (confirm('Apagar blocos, sessões e configurações?')) { state = fresh(); save(); dlg.close(); render(); } };
     dlg.showModal();
@@ -745,7 +737,8 @@
     unlockAudio();
     if (ui.soundNotice && !e.target.closest('#banner-close')) { ui.soundNotice = false; $('#alert-banner').hidden = true; }
     const a = e.target.closest('[data-act]'); if (a && a.closest('#timer')) timerAction(a.dataset.act);
-    if (e.target.id === 'banner-close') $('#alert-banner').hidden = true;
+    if (e.target.id === 'banner-silence') silenceAlarm();
+    if (e.target.id === 'banner-close') { $('#alert-banner').hidden = true; silenceAlarm(); }
     const ob = e.target.closest('[data-open-block]'); if (ob) { e.preventDefault(); openBlockDialog({ id: ob.dataset.openBlock }); }
   });
   document.addEventListener('keydown', unlockAudio, { once: true });
@@ -762,7 +755,7 @@
   $('#w-refresh').addEventListener('click', () => { const wk = $('#w-week').value; if (W) { state.reports = { ...state.reports, [wk]: W.buildWeeklyReport(state, wk, Date.now()) }; save(); } renderWeekly(); });
   $('#f-clear').addEventListener('click', () => { $('#report-filters').reset(); renderReports(); });
   window.addEventListener('storage', (e) => { if (e.key === KEY) { state = load(); ui.timerSig = ''; render(); } });
-  document.addEventListener('visibilitychange', tick);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) A.stopFlash(); tick(); });
 
   /* ---------- gerar cronograma (requisito 08): propõe, deixa revisar e só grava após confirmar ---------- */
   function openScheduleDialog() {
@@ -846,7 +839,15 @@
 
   /* ---------- assistente (chat): só interpreta; cálculos e gravação passam pelos módulos ---------- */
   let chat = null;
+  let guide = null;
+  function toggleGuide() {
+    const dr = $('#guide-drawer'), open = dr.hidden;
+    if (open && !$('#chat-drawer').hidden) toggleChat(); // um painel lateral por vez
+    dr.hidden = !open; document.body.classList.toggle('chat-open', open);
+    if (open && !guide && window.TestGuide) guide = window.TestGuide.mount(dr, { version: APP_VERSION });
+  }
   function toggleChat() {
+    if (!$('#guide-drawer').hidden) toggleGuide();
     const dr = $('#chat-drawer'), open = dr.hidden;
     dr.hidden = !open; document.body.classList.toggle('chat-open', open);
     if (open && !chat && window.Chat) {
@@ -858,6 +859,8 @@
     }
   }
   $('#btn-chat').addEventListener('click', toggleChat);
+  $('#btn-guide').addEventListener('click', toggleGuide);
+  $('#app-version').textContent = APP_VERSION;
   /** Faixa de aviso reaproveitando #alert-banner. */
   function showNotice(text, soundHint) {
     const el = $('#alert-banner'); el.textContent = '';
@@ -872,5 +875,13 @@
   bindCalendar();
   render();
   handleAlert();
-  setInterval(tick, 500);
+  /* Relógio em Web Worker: o navegador atrasa timers de abas escondidas (até 1×/min); o worker não, então o alarme dispara na hora. */
+  (function startTicker() {
+    try {
+      const blob = new Blob(['setInterval(function(){postMessage(1)},500)'], { type: 'text/javascript' });
+      const w = new Worker(URL.createObjectURL(blob)); w.onmessage = tick; return;
+    } catch (e) { /* sem worker: usa timer comum */ }
+    setInterval(tick, 500);
+  })();
+  window.addEventListener('focus', () => A.stopFlash());
 })();

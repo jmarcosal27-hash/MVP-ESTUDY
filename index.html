@@ -10,13 +10,14 @@
 </head>
 <body>
   <header class="topbar">
-    <h1>📚 Estudy</h1>
+    <h1>📚 Estudy <small id="app-version" class="muted"></small></h1>
     <nav>
       <button data-view="calendar" class="tab active">Calendário</button>
       <button data-view="reports" class="tab">Relatórios</button>
       <button data-view="weekly" class="tab" id="tab-weekly">Relatório semanal</button>
       <button id="btn-chat" class="tab">💬 Assistente</button>
-      <button id="btn-settings" class="tab">⚙ Pomodoro padrão</button>
+      <button id="btn-guide" class="tab">🧪 Roteiro de teste</button>
+      <button id="btn-settings" class="tab">⚙ Configurações</button>
     </nav>
   </header>
 
@@ -34,7 +35,10 @@
         <div class="cal-nav"><button id="gen-schedule">🗓 Gerar cronograma</button><button id="week-config">⚙ Semana: limite e disponibilidade</button><button id="new-block" class="primary">+ Novo bloco</button></div>
       </div>
       <div id="capacity" class="summary capacity"></div>
-      <div id="week-summary" class="summary"></div>
+      <details class="more"><summary>Mais números da semana</summary>
+        <div id="capacity-more" class="summary"></div>
+        <div id="week-summary" class="summary"></div>
+      </details>
       <div class="legend">
         <span class="chip st-em_dia">Em dia</span><span class="chip st-atrasado">Atrasado</span><span class="chip st-concluido">Concluído</span>
         <span class="muted">Clique em um horário vazio para criar · arraste um bloco para reagendar</span>
@@ -63,6 +67,7 @@
   </main>
 
   <aside id="chat-drawer" class="chat-drawer" hidden></aside>
+  <aside id="guide-drawer" class="chat-drawer guide" hidden aria-label="Roteiro de teste"></aside>
   <aside id="timer" class="timer" hidden></aside>
 
   <dialog id="dlg-block"></dialog>
@@ -72,6 +77,8 @@
   <dialog id="dlg-pick"></dialog>
 
   <script src="js/core.js"></script>
+  <script src="js/alarm.js"></script>
+  <script src="js/testguide.js"></script>
   <script src="js/capacity.js"></script>
   <script src="js/scheduler.js"></script>
   <script src="js/commands.js"></script>

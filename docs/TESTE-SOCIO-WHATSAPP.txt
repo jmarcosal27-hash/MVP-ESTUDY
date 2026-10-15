@@ -1,115 +1,23 @@
-===== MENSAGEM 1 =====
-*TESTE DO ESTUDY* 📚
+===== MENSAGEM 1 (enviar junto com o arquivo estudy.html) =====
+*TESTE DO ESTUDY - versão sprint 1* 📚
 
-Oi! Preciso que você use o app como um estudante de verdade e me diga o que atrapalha, o que falta e o que sobra. Siga os passos e marque ✅ (funcionou) ou ❌ (não funcionou / estranho).
+Oi! Agora o teste é guiado DENTRO do app, bem mais fácil:
 
-*PREPARAÇÃO*
-1) Salve o arquivo estudy.html e abra com duplo clique no Chrome.
-2) Use SEMPRE o mesmo navegador e NÃO limpe os dados dele (senão perde tudo).
-3) Deixe o som ligado.
-4) Para testar rápido: clique em "Pomodoro padrão" (canto superior direito) e coloque Foco 1 min, Pausa curta 1 min, Pausa longa 2 min, longa a cada 2. Depois volte para os valores reais.
-5) Anote em um bloco de notas tudo que te incomodar.
+1) Salve o estudy.html e abra com duplo clique no Chrome (use sempre o mesmo navegador e não limpe os dados dele).
+2) Clique no botão *🧪 Roteiro de teste* (barra de cima). Abre um painel com os passos.
+3) Siga os passos. Em cada um marque *✅ Funcionou* ou *❌ Problema*. Se der problema, escreva o que aconteceu e escolha a gravidade (A impede de usar / B atrapalha / C incômodo).
+4) Qualquer outra coisa que te incomodar: "Nova observação livre" no fim do painel.
+5) Quando terminar (ou a cada dia): clique em *📋 Copiar feedback (WhatsApp)* e cole aqui pra mim.
 
-Obs: o botão "Assistente" (chat) NÃO funciona nessa versão, pode ignorar.
+*Novidades pra você avaliar:*
+- Alarme forte e repetido quando o pomodoro/pausa acaba (dá pra silenciar). Teste em Configurações > "Testar alarme".
+- Notificação no canto da tela quando você está em outra aba/janela (aceite o pedido de permissão quando aparecer).
+- Cadastro de bloco mais simples, com a seção de pomodoros já aberta e valores 25/5/4/15 de início.
+- Sem "Pomodoro padrão" e sem "Margem disponível".
 
-*PARTE 1 - PLANEJAR A SEMANA*
-1.1 Clique num horário vazio de amanhã. Abre o cadastro já com dia e hora?
-1.2 Crie "Redes - Camada de enlace", 3 pomodoros. Abra "Pomodoro deste bloco" e ponha foco 50 e pausa 10. A prévia deve mostrar: estudo 2h30, descanso 20min, reservado 2h50, e o horário de término.
-1.3 Salve. O bloco aparece azul com o texto "Em dia"?
-1.4 Arraste o bloco para outro dia/horário. Move?
-1.5 Crie outro bloco por cima do primeiro. Os dois ficam com "Conflito" e lado a lado?
-1.6 Edite e mude para 4 pomodoros. Duração e término mudam? (a última pausa não deve existir)
-1.7 Tente um bloco às 23:00 com 3 pomodoros. Deve recusar (passa da meia-noite).
-1.8 Navegue entre semanas e use o botão "Hoje". O dia atual fica destacado?
-1.9 No topo e em cada dia aparecem os totais de tempo?
-Pergunta: foi fácil montar a semana? Faltou algo (copiar bloco, repetir toda semana, cor por matéria)?
-
-*PARTE 2 - ESTUDAR COM O CRONÔMETRO*
-Use um bloco de 1 min de foco.
-2.1 Abra o bloco e clique "Iniciar cronômetro". Aparece o painel com contagem regressiva e o bloco mostra "Em andamento"?
-2.2 Tente iniciar outro bloco. Deve avisar que já tem um cronômetro ativo.
-2.3 Pause uns 20s e retome. Continua de onde parou?
-2.4 Deixe o foco ZERAR. Deve tocar um som, aparecer uma faixa laranja e a fase virar "Tempo extra" com contador subindo (+mm:ss). NÃO deve pedir confirmação e NÃO deve começar o descanso sozinho.
-2.5 Pause e retome no tempo extra. Continua de onde parou?
-2.6 Aperte F5 com o cronômetro rodando. A sessão continua?
-2.7 Troque de aba por 1 ou 2 minutos e volte. A contagem está certa?
-2.8 Clique "Iniciar pausa". O tempo extra acumulado foi mantido?
-2.9 Deixe a pausa acabar. Deve ficar "aguardando você" e NADA ser contado até clicar em "Iniciar foco".
-2.10 Inicie o 2º foco e clique "Encerrar" antes de zerar. Salva como ciclo parcial?
-2.11 Abra o bloco. Mostra foco + extra = total estudado, pomodoros completos e parciais?
-2.12 O bloco ficou concluído sozinho? NÃO deve (só conclui no botão "Marcar como concluído").
-Pergunta: o som dá pra ouvir? O painel do cronômetro atrapalha a tela? Faltou algum botão (+5 min, estudar sem limite)?
-
-===== MENSAGEM 2 =====
-*PARTE 3 - RESULTADOS (questões e acertos)*
-3.1 Preencha 10 questões e deixe acertos vazio. Deve mostrar "Resultado pendente" (não 0%).
-3.2 Acertos = 0. Deve mostrar 10 erros e 0,0%.
-3.3 Acertos = 11. Deve recusar (acertos > questões).
-3.4 Digite -1, 1,5 ou texto. Deve recusar.
-3.5 Deixe questões vazias. Deve mostrar "Sem questões registradas".
-3.6 Acertos = 7 de 10. Deve mostrar 3 erros e 70,0%.
-3.7 "Marcar como concluído" deixa verde. "Reabrir" volta. Confere?
-3.8 Deixe um bloco passar do horário sem concluir. Fica vermelho "Atrasado"?
-
-*PARTE 4 - RELATÓRIOS*
-Crie 3 matérias com blocos e resultados (em "Pomodoro padrão" tem "Carregar dados de exemplo" que ajuda).
-4.1 Aba "Relatórios": tabela por matéria com planejado, estudado, tempo extra separado, questões, acertos, erros, taxa.
-4.2 Filtre por matéria e por período. Os números mudam certo?
-4.3 Agrupe por Semana.
-4.4 Confira a taxa geral na mão: soma dos acertos dividida pela soma das questões (não a média das taxas).
-4.5 Abra "Blocos do resultado" e clique em um bloco.
-4.6 Leia os "Pontos de atenção". Ajudam a decidir o que estudar?
-Pergunta: qual número você olharia primeiro toda semana? Qual está faltando (gráfico, evolução)?
-
-*PARTE 5 - LIMITE SEMANAL E CAPACIDADE*
-Em "Pomodoro padrão" defina o limite (ex.: 4 horas) e as faixas de estudo por dia (ex.: 08:00-12:00, 14:00-22:00).
-5.1 Limite de 4h + bloco de 3 pomodoros de 50min: o painel do topo mostra carga 2h30 (só estudo), saldo 1h30. O bloco ocupa 2h50 na agenda.
-5.2 Crie um 2º bloco igual na mesma semana. Antes de salvar deve avisar que passa do limite em 1h e mostrar alternativas. Só grava se você aceitar, e o limite NÃO muda sozinho.
-5.3 Aceite ultrapassar. Aparecem "Excesso" em vermelho?
-5.4 Botão "Semana: limite e disponibilidade": ponha 10h só para essa semana. A semana seguinte continua com o limite padrão?
-5.5 Estude um pouco com o cronômetro. "Estudado na semana" sobe? Projeção = estudado + restante? Margem = limite - projeção?
-5.6 Edite o bloco e mude "Restante previsto". A projeção muda? Concluir o bloco zera o restante?
-5.7 Crie um bloco fora da disponibilidade. Aparece aviso?
-5.8 Num bloco, clique "Agendar revisão". Abre uma revisão ligada ao bloco, uma semana depois?
-
-*PARTE 6 - GERAR CRONOGRAMA*
-Botão "Gerar cronograma".
-6.1 Item 1: Constitucional, 2 blocos de 3 pomodoros. Item 2: Redes, 3 blocos de 2 pomodoros. Clique "Gerar proposta". Vem 5 blocos, sem sobreposição, dentro da disponibilidade, cada um com o "por quê"?
-6.2 Mude dia/hora de uma linha e confirme. Grava com o seu ajuste?
-6.3 Antes de confirmar, NADA aparece no calendário. Correto?
-6.4 Peça mais do que cabe (ex.: 30 blocos). Os que não couberam aparecem com o motivo?
-6.5 Coloque um prazo curto ou um dia/hora obrigatório. É respeitado?
-6.6 Gere de novo com blocos já na semana. Os existentes ficam intactos, sem duplicar?
-
-===== MENSAGEM 3 =====
-*PARTE 7 - RELATÓRIO SEMANAL*
-Aba "Relatório semanal". Para testar sem esperar, escolha a semana no seletor e clique "Atualizar relatório".
-7.1 Mostra planejados, concluídos, atrasados, tempo planejado x estudado, tempo extra, questões, acertos, erros e taxa?
-7.2 Matéria com poucas questões aparece em "Poucos dados" (não como ponto forte ou fraco)?
-7.3 Matéria sem questões NUNCA aparece como 0%?
-7.4 Matéria com muito tempo mas sem erros não vira "dificuldade"?
-7.5 Reagende um bloco para a semana seguinte. O relatório da semana original continua mostrando que ele não foi feito?
-7.6 Corrija um resultado e clique "Atualizar". Os números mudam?
-7.7 Em "Preparando a semana seguinte": mostra o que já está programado, a capacidade e sugestões com motivo e impacto?
-7.8 Clique em "Aplicar esta sugestão". Pede confirmação antes de mudar o calendário?
-
-*PARTE 8 - USO REAL (3 a 5 dias)*
-Use o app NO LUGAR da sua agenda, com pomodoros reais (ex.: 50/10, longa 30 a cada 4). No fim de cada dia anote em 1 linha: o que você tentou fazer e não conseguiu, ou achou chato.
-Teste também: fechar o navegador no meio de uma sessão e reabrir; estudar 2 sessões no mesmo bloco; estudar além do horário do bloco seguinte (deve aparecer o aviso de conflito).
-
-*COMO ME MANDAR O FEEDBACK*
-Uma linha por item, assim:
-- Onde: (tela/parte)
-- O que aconteceu ou faltou:
-- O que você esperava:
-- Gravidade: A (impede de usar) / B (atrapalha) / C (incômodo ou ideia)
-- Acontece: sempre / às vezes
-
-*PERGUNTAS FINAIS (1 ou 2 frases cada)*
-1) Você trocaria sua agenda atual por este app? O que falta para isso?
-2) Qual recurso mais usou? Qual nunca usou?
-3) O que mais te irritou?
-4) Dos recursos novos (limite semanal, gerar cronograma, relatório semanal), qual mais ajudou e qual mais atrapalhou?
-5) Comparando com Estudei, Focus Keeper e TickTick: o que eles fazem melhor que este app?
+Dicas:
+- Para testar rápido, ponha foco 1 min e pausa 1 min no cadastro do bloco.
+- Deixe o som do computador ligado.
+- O botão "Assistente" (chat) ainda não funciona nessa versão, pode ignorar.
 
 Valeu! 🙌

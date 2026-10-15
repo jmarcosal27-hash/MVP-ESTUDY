@@ -123,6 +123,40 @@ body.has-timer .chat-drawer { bottom: 292px; }
 
 .block:focus-visible, button:focus-visible, .tab:focus-visible { outline: 3px solid var(--accent-text); outline-offset: 2px; }
 
+/* ---- Sprint 1: cadastro enxuto, painel limpo, roteiro de teste ---- */
+.topbar nav { display: flex; gap: 6px; flex-wrap: wrap; }
+.topbar h1 small { font-size: 11px; font-weight: 400; margin-left: 6px; }
+.form-grid.g2 { grid-template-columns: 1fr 1fr; }
+@media (max-width: 560px) { .form-grid.g2 { grid-template-columns: 1fr; } }
+.form-grid .wide { grid-column: 1 / -1; }
+.pomo-box { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.pomo-box summary { font-weight: 600; cursor: pointer; }
+.actions.sticky { position: sticky; bottom: -16px; background: var(--surface); padding: 10px 0 4px; margin-top: 14px; border-top: 1px solid var(--line); z-index: 2; }
+details.more { margin: 0 0 8px; }
+details.more summary { cursor: pointer; color: var(--accent-text); font-size: 13px; padding: 2px 0; }
+.stat { min-width: 120px; }
+#banner-silence { margin-left: auto; }
+.chat-drawer.guide { padding: 10px; overflow: auto; display: block; }
+.tg { display: grid; gap: 8px; font-size: 13px; }
+.tg-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tg-progress { height: 8px; background: var(--line); border-radius: 6px; overflow: hidden; }
+.tg-bar { height: 100%; background: var(--accent-solid); transition: width .2s; }
+.tg-sum { font-weight: 600; }
+.tg-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.tg-copied { color: var(--green); min-height: 1.2em; font-weight: 600; }
+.tg-part { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.tg-part > summary { cursor: pointer; font-weight: 600; }
+.tg-item { border-top: 1px dashed var(--line); padding: 8px 0; display: grid; gap: 4px; }
+.tg-item.ok { background: color-mix(in srgb, var(--green-bg) 55%, transparent); }
+.tg-item.fail { background: color-mix(in srgb, var(--red-bg) 55%, transparent); }
+.tg-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.tg-btns button { padding: 4px 10px; }
+.tg-btns .on-ok { background: var(--green-bg); color: var(--green); border-color: var(--green); font-weight: 700; }
+.tg-btns .on-fail { background: var(--red-bg); color: var(--red); border-color: var(--red); font-weight: 700; }
+.tg-part input, .tg-part textarea, .tg-part select { margin: 4px 0; }
+.tg-note { display: flex; justify-content: space-between; gap: 6px; align-items: flex-start; border-top: 1px dashed var(--line); padding: 4px 0; }
+.chat-drawer.guide[hidden], .chat-drawer[hidden] { display: none !important; }
+
 </style>
   <style>
 /* Painel do chat. Usa as variáveis de cor do app (com valores de reserva) e só estiliza .chat. */
@@ -156,13 +190,14 @@ body.has-timer .chat-drawer { bottom: 292px; }
 </head>
 <body>
   <header class="topbar">
-    <h1>📚 Estudy</h1>
+    <h1>📚 Estudy <small id="app-version" class="muted"></small></h1>
     <nav>
       <button data-view="calendar" class="tab active">Calendário</button>
       <button data-view="reports" class="tab">Relatórios</button>
       <button data-view="weekly" class="tab" id="tab-weekly">Relatório semanal</button>
       <button id="btn-chat" class="tab">💬 Assistente</button>
-      <button id="btn-settings" class="tab">⚙ Pomodoro padrão</button>
+      <button id="btn-guide" class="tab">🧪 Roteiro de teste</button>
+      <button id="btn-settings" class="tab">⚙ Configurações</button>
     </nav>
   </header>
 
@@ -180,7 +215,10 @@ body.has-timer .chat-drawer { bottom: 292px; }
         <div class="cal-nav"><button id="gen-schedule">🗓 Gerar cronograma</button><button id="week-config">⚙ Semana: limite e disponibilidade</button><button id="new-block" class="primary">+ Novo bloco</button></div>
       </div>
       <div id="capacity" class="summary capacity"></div>
-      <div id="week-summary" class="summary"></div>
+      <details class="more"><summary>Mais números da semana</summary>
+        <div id="capacity-more" class="summary"></div>
+        <div id="week-summary" class="summary"></div>
+      </details>
       <div class="legend">
         <span class="chip st-em_dia">Em dia</span><span class="chip st-atrasado">Atrasado</span><span class="chip st-concluido">Concluído</span>
         <span class="muted">Clique em um horário vazio para criar · arraste um bloco para reagendar</span>
@@ -209,6 +247,7 @@ body.has-timer .chat-drawer { bottom: 292px; }
   </main>
 
   <aside id="chat-drawer" class="chat-drawer" hidden></aside>
+  <aside id="guide-drawer" class="chat-drawer guide" hidden aria-label="Roteiro de teste"></aside>
   <aside id="timer" class="timer" hidden></aside>
 
   <dialog id="dlg-block"></dialog>
@@ -584,6 +623,327 @@ body.has-timer .chat-drawer { bottom: 292px; }
     startSession, elapsed, advance, pause, resume, startBreak, startFocus, finishSession, liveTotals,
     canStartBreak, nextBreakKind, isBreak, phaseDuration, findConflicts, blockRealized, consolidate,
   };
+});
+
+</script>
+  <script>
+/* Alarme do cronômetro: som forte e repetido (tipo despertador), notificação do sistema e título piscando.
+ * Pensado para você perceber o fim do pomodoro mesmo com fone baixo, com outra aba aberta ou ouvindo outra coisa.
+ * O som é agendado de uma vez na linha do tempo do Web Audio (não depende de timers, que o navegador atrasa em aba escondida). */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(null);
+  else root.Alarm = factory(root);
+})(typeof self !== 'undefined' ? self : this, function (win) {
+  const DEFAULT_SECONDS = 300, MAX_SECONDS = 300; // padrão: toca até você silenciar (máx. 5 min)
+  let ctx = null, master = null, nodes = [], stopTimer = null, flashTimer = null, originalTitle = null, active = null;
+
+  /** Cria/retoma o áudio. Precisa de um gesto do usuário (clique) pela regra dos navegadores. */
+  function unlock() {
+    if (!win) return false;
+    try {
+      ctx = ctx || new (win.AudioContext || win.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx.state !== 'closed';
+    } catch (e) { return false; }
+  }
+  const isReady = () => !!ctx && ctx.state === 'running';
+
+  /**
+   * Toca o alarme por `seconds` (0 = só uma vez). kind: 'focus_end' (bip-bip-bip-bip agudo e insistente)
+   * ou 'break_end' (dó-mi-sol ascendente). Um único oscilador com volume e nota automatizados na linha do tempo do áudio:
+   * leve mesmo para 5 minutos e não depende de timers. Devolve false se o navegador bloqueou o áudio.
+   */
+  function play(kind, seconds) {
+    if (!unlock() || !ctx) return false;
+    stop();
+    const dur = Math.min(MAX_SECONDS, Math.max(0, seconds === undefined ? DEFAULT_SECONDS : seconds));
+    const spec = kind === 'focus_end'
+      ? { type: 'square', freqs: [1175, 1175, 1175, 1175], len: 0.14, gap: 0.09, gain: 0.55, period: 1.6 }
+      : { type: 'triangle', freqs: [659, 880, 1175], len: 0.28, gap: 0.07, gain: 0.7, period: 2.2 };
+    master = ctx.createGain(); master.gain.value = 0.95;
+    const comp = ctx.createDynamicsCompressor(); // evita estourar e deixa o som mais "cheio"
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = spec.type; g.gain.value = 0.0001;
+    osc.connect(g); g.connect(master); master.connect(comp); comp.connect(ctx.destination);
+    nodes.push(osc, g, master, comp);
+    const t0 = ctx.currentTime + 0.05, cycles = Math.max(1, Math.ceil(dur / spec.period));
+    for (let c = 0; c < cycles; c++) {
+      spec.freqs.forEach((f, i) => {
+        const t = t0 + c * spec.period + i * (spec.len + spec.gap);
+        osc.frequency.setValueAtTime(f, t);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(spec.gain, t + 0.01);
+        g.gain.setValueAtTime(spec.gain, t + spec.len - 0.03);
+        g.gain.linearRampToValueAtTime(0.0001, t + spec.len);
+      });
+    }
+    const total = cycles * spec.period;
+    osc.start(t0); osc.stop(t0 + total + 0.1);
+    active = { kind, until: Date.now() + Math.max(total, 2) * 1000 };
+    stopTimer = setTimeout(() => { active = null; }, Math.max(total, 2) * 1000 + 300);
+    return true;
+  }
+  /** Silencia agora. */
+  function stop() {
+    if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
+    nodes.forEach((n) => { try { if (n.stop) n.stop(); n.disconnect(); } catch (e) { /* já parado */ } });
+    nodes = []; master = null; active = null;
+  }
+  const isPlaying = () => !!active && Date.now() < active.until;
+
+  /* ---------- notificação do sistema ---------- */
+  const supported = () => !!win && 'Notification' in win;
+  const permission = () => (supported() ? win.Notification.permission : 'unsupported');
+  /** Pede permissão (precisa ser chamado a partir de um clique). */
+  function requestPermission() {
+    if (!supported()) return Promise.resolve('unsupported');
+    try {
+      const r = win.Notification.requestPermission();
+      return r && r.then ? r : Promise.resolve(win.Notification.permission);
+    } catch (e) { return Promise.resolve(win.Notification.permission); }
+  }
+  /** Mostra a notificação no canto da tela. Fica até você clicar (requireInteraction). */
+  function notify(title, body) {
+    if (!supported() || win.Notification.permission !== 'granted') return false;
+    try {
+      const n = new win.Notification(title, { body, tag: 'estudy-alerta', renotify: true, requireInteraction: true, silent: true });
+      n.onclick = () => { try { win.focus(); n.close(); } catch (e) { /* ignora */ } };
+      if (win.navigator && win.navigator.vibrate) win.navigator.vibrate([300, 150, 300, 150, 300]);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  /* ---------- título da aba piscando (aparece na barra de abas mesmo sem som) ---------- */
+  function flashTitle(text) {
+    if (!win || !win.document) return;
+    stopFlash();
+    originalTitle = win.document.title.replace(/^⏰ .*? \| /, '');
+    let on = false;
+    flashTimer = setInterval(() => { on = !on; win.document.title = on ? `⏰ ${text} | ${originalTitle}` : originalTitle; }, 900);
+  }
+  function stopFlash() {
+    if (flashTimer) { clearInterval(flashTimer); flashTimer = null; }
+    if (win && win.document && originalTitle !== null) { win.document.title = originalTitle; originalTitle = null; }
+  }
+  const isFlashing = () => !!flashTimer;
+
+  return { DEFAULT_SECONDS, MAX_SECONDS, unlock, isReady, play, stop, isPlaying, supported, permission, requestPermission, notify, flashTitle, stopFlash, isFlashing };
+});
+
+</script>
+  <script>
+/* Roteiro de teste dentro do app: marcar ✅/❌ item a item, anotar, e copiar o feedback pronto para o WhatsApp.
+ * Os resultados ficam no navegador (localStorage), separados dos dados de estudo. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.TestGuide = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  const KEY = 'estudy.teste.v1';
+
+  /** Roteiro (sem o chat). Cada item: id, o que fazer e o que deve acontecer. */
+  const PARTS = [
+    { id: '1', title: 'Planejar a semana', items: [
+      ['1.1', 'Clique num horário vazio de amanhã.', 'Abre o cadastro já com dia e hora.'],
+      ['1.2', 'Crie "Redes · Camada de enlace" com 3 pomodoros (foco 50, pausa curta 10).', 'Prévia: estudo 2h30, descanso 20min, reservado 2h50 e o horário de término.'],
+      ['1.3', 'Salve o bloco.', 'Aparece azul com o texto "Em dia".'],
+      ['1.4', 'Arraste o bloco para outro dia/horário.', 'Move; o horário vai de 15 em 15 min.'],
+      ['1.5', 'Crie outro bloco sobreposto ao primeiro.', 'Os dois mostram "Conflito".'],
+      ['1.6', 'Edite e mude para 4 pomodoros.', 'Duração e término mudam (sem pausa depois do último).'],
+      ['1.7', 'Tente um bloco às 23:00 com 3 pomodoros.', 'Recusa: passa da meia-noite.'],
+      ['1.8', 'Navegue entre semanas e use "Hoje".', 'O dia atual fica destacado.'],
+    ] },
+    { id: '2', title: 'Estudar com o cronômetro', items: [
+      ['2.1', 'Use um bloco com foco de 1 min. Abra-o e clique "Iniciar cronômetro".', 'Painel com contagem regressiva; o bloco mostra "Em andamento".'],
+      ['2.2', 'Tente iniciar outro bloco.', 'Avisa que já existe um cronômetro ativo.'],
+      ['2.3', 'Pause ~20 s e retome.', 'Continua de onde parou.'],
+      ['2.4', 'Deixe o foco ZERAR (com outra aba aberta, fone baixo, etc.).', 'ALARME forte e repetido, notificação no canto da tela e título da aba piscando. A fase vira "Tempo extra" (+mm:ss) sem pedir confirmação e sem iniciar o descanso.'],
+      ['2.5', 'Pause e retome no tempo extra.', 'Continua de onde parou.'],
+      ['2.6', 'Aperte F5 com o cronômetro rodando.', 'A sessão continua.'],
+      ['2.7', 'Clique "Iniciar pausa" e deixe acabar.', 'Alarme de fim de pausa; fica "aguardando você"; nada é contado até "Iniciar foco".'],
+      ['2.8', 'Inicie outro foco e clique "Encerrar" antes de zerar.', 'Salva como ciclo parcial.'],
+      ['2.9', 'Abra o bloco.', 'Mostra foco + extra = total, pomodoros completos e parciais. O bloco NÃO conclui sozinho.'],
+    ] },
+    { id: '3', title: 'Resultados (questões e acertos)', items: [
+      ['3.1', '10 questões, acertos vazio.', '"Resultado pendente" (não 0%).'],
+      ['3.2', 'Acertos = 0.', '10 erros e 0,0%.'],
+      ['3.3', 'Acertos = 11.', 'Recusa (acertos > questões).'],
+      ['3.4', 'Digite -1, 1,5 ou texto.', 'Recusa.'],
+      ['3.5', 'Questões vazias.', '"Sem questões registradas".'],
+      ['3.6', 'Acertos = 7 de 10.', '3 erros e 70,0%.'],
+      ['3.7', 'Marcar como concluído / Reabrir.', 'Verde ao concluir; volta ao reabrir.'],
+      ['3.8', 'Deixe um bloco passar do horário sem concluir.', 'Fica vermelho "Atrasado".'],
+    ] },
+    { id: '4', title: 'Relatórios', items: [
+      ['4.1', 'Abra "Relatórios" (use "Carregar dados de exemplo" em Configurações se precisar).', 'Tabela por matéria com planejado, estudado, extra separado, questões, acertos, erros e taxa.'],
+      ['4.2', 'Filtre por matéria e por período.', 'Os números mudam certo.'],
+      ['4.3', 'Agrupe por Semana.', 'Uma linha por semana.'],
+      ['4.4', 'Confira a taxa geral na mão.', 'Soma dos acertos ÷ soma das questões (não a média das taxas).'],
+      ['4.5', 'Abra "Blocos do resultado" e clique num bloco.', 'Lista os blocos e abre o bloco.'],
+    ] },
+    { id: '5', title: 'Limite semanal e capacidade', items: [
+      ['5.1', 'Em Configurações defina o limite (ex.: 4 h). Crie um bloco de 3 pomodoros de 50 min.', 'Carga 2h30 (só estudo), saldo 1h30; o bloco ocupa 2h50 na agenda.'],
+      ['5.2', 'Crie um 2º bloco igual na mesma semana.', 'Avisa o excesso antes de salvar e mostra alternativas; só grava se você aceitar.'],
+      ['5.3', 'Botão "Semana": limite de 10 h só para esta semana.', 'A semana seguinte continua com o limite padrão.'],
+      ['5.4', 'Estude um pouco com o cronômetro.', '"Estudado" sobe; a projeção acompanha.'],
+      ['5.5', 'Num bloco, clique "Agendar revisão".', 'Abre uma revisão ligada ao bloco, uma semana depois.'],
+    ] },
+    { id: '6', title: 'Gerar cronograma', items: [
+      ['6.1', '"Gerar cronograma": Constitucional 2 blocos de 3 pomodoros; Redes 3 blocos de 2.', '5 blocos propostos, sem sobreposição, com o "por quê".'],
+      ['6.2', 'Mude dia/hora de uma linha e confirme.', 'Grava com o seu ajuste.'],
+      ['6.3', 'Antes de confirmar, olhe o calendário.', 'Nada foi gravado ainda.'],
+      ['6.4', 'Peça mais do que cabe (ex.: 30 blocos).', 'Os que não couberam aparecem com o motivo.'],
+    ] },
+    { id: '7', title: 'Relatório semanal', items: [
+      ['7.1', 'Aba "Relatório semanal" → "Atualizar relatório".', 'Execução da semana, forças/fraquezas e próxima semana.'],
+      ['7.2', 'Matéria com poucas questões.', 'Vai para "Poucos dados" (não vira força/fraqueza).'],
+      ['7.3', 'Matéria sem questões.', 'Nunca aparece como 0%.'],
+      ['7.4', 'Clique "Aplicar esta sugestão…".', 'Pede confirmação antes de mudar o calendário.'],
+    ] },
+    { id: '8', title: 'Uso real (3 a 5 dias)', items: [
+      ['8.1', 'Use o app no lugar da sua agenda, com pomodoros reais.', 'Anote cada atrito em "Nova observação".'],
+    ] },
+  ].map((p) => ({ ...p, items: p.items.map(([id, what, expect]) => ({ id, what, expect })) }));
+
+  const allItems = () => PARTS.flatMap((p) => p.items.map((i) => ({ ...i, part: p.title })));
+  const SEVERITY = { A: 'A (impede de usar)', B: 'B (atrapalha)', C: 'C (incômodo ou ideia)' };
+
+  /** Estado: { items: {id: {r:'ok'|'fail'|null, note, sev}}, notes:[{id, where, text, sev, at}] } */
+  const emptyState = () => ({ items: {}, notes: [] });
+  function summarize(st) {
+    const all = allItems(); let ok = 0, fail = 0;
+    for (const i of all) { const r = (st.items[i.id] || {}).r; if (r === 'ok') ok++; else if (r === 'fail') fail++; }
+    return { total: all.length, ok, fail, pending: all.length - ok - fail, notes: st.notes.length };
+  }
+
+  /** Texto do feedback, em formato que o WhatsApp mostra bem (sem tabelas). */
+  function buildReport(st, meta) {
+    const s = summarize(st), out = [];
+    out.push('*FEEDBACK DO TESTE - ESTUDY* 📚');
+    if (meta && meta.version) out.push(`Versão testada: ${meta.version}`);
+    if (meta && meta.when) out.push(`Data: ${meta.when}`);
+    out.push(`Resultado: ✅ ${s.ok} funcionaram · ❌ ${s.fail} com problema · ⏳ ${s.pending} não testados`);
+    const fails = allItems().filter((i) => (st.items[i.id] || {}).r === 'fail');
+    if (fails.length) {
+      out.push('', '*ITENS COM PROBLEMA*');
+      for (const i of fails) {
+        const it = st.items[i.id];
+        out.push(`❌ ${i.id} (${i.part}) - ${i.what}`);
+        out.push(`   Esperado: ${i.expect}`);
+        if (it.note) out.push(`   O que aconteceu: ${it.note}`);
+        if (it.sev) out.push(`   Gravidade: ${SEVERITY[it.sev] || it.sev}`);
+      }
+    }
+    const withNote = allItems().filter((i) => (st.items[i.id] || {}).r === 'ok' && (st.items[i.id] || {}).note);
+    if (withNote.length) {
+      out.push('', '*COMENTÁRIOS EM ITENS QUE FUNCIONARAM*');
+      for (const i of withNote) out.push(`✅ ${i.id} - ${st.items[i.id].note}`);
+    }
+    if (st.notes.length) {
+      out.push('', '*OBSERVAÇÕES LIVRES*');
+      st.notes.forEach((n, k) => {
+        out.push(`${k + 1}) ${n.where ? `[${n.where}] ` : ''}${n.text}${n.sev ? ` (Gravidade ${n.sev})` : ''}`);
+      });
+    }
+    return out.join('\n');
+  }
+
+  /* ---------- interface ---------- */
+  function mount(el, opts) {
+    const doc = el.ownerDocument, meta = opts || {};
+    let st = emptyState();
+    try { const raw = JSON.parse(localStorage.getItem(KEY)); if (raw && raw.items && Array.isArray(raw.notes)) st = raw; } catch (e) { /* sem dados salvos */ }
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { /* sem persistência */ } };
+    const h = (tag, attrs, ...kids) => {
+      const n = doc.createElement(tag);
+      for (const [k, v] of Object.entries(attrs || {})) {
+        if (k === 'class') n.className = v; else if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (v !== false && v != null) n.setAttribute(k, v);
+      }
+      kids.flat(Infinity).forEach((c) => { if (c != null && c !== false) n.append(c.nodeType ? c : doc.createTextNode(String(c))); });
+      return n;
+    };
+    const stamp = () => meta.version ? `Versão ${meta.version}` : '';
+
+    function render() {
+      const s = summarize(st), pct = Math.round(((s.ok + s.fail) / s.total) * 100);
+      const root = h('div', { class: 'tg' },
+        h('div', { class: 'tg-head' }, h('b', {}, '🧪 Roteiro de teste'), h('span', { class: 'muted' }, stamp())),
+        h('div', { class: 'tg-progress', role: 'progressbar', 'aria-valuenow': String(pct), 'aria-valuemin': '0', 'aria-valuemax': '100' }, h('div', { class: 'tg-bar', style: `width:${pct}%` })),
+        h('div', { class: 'tg-sum' }, `✅ ${s.ok}  ❌ ${s.fail}  ⏳ ${s.pending}  📝 ${s.notes}`),
+        h('div', { class: 'tg-actions' },
+          h('button', { class: 'primary', type: 'button', onclick: copy }, '📋 Copiar feedback (WhatsApp)'),
+          h('button', { type: 'button', onclick: download }, '⬇ Baixar .txt')),
+        h('div', { class: 'tg-copied', id: 'tg-copied', 'aria-live': 'polite' }));
+      for (const p of PARTS) {
+        const done = p.items.filter((i) => (st.items[i.id] || {}).r).length;
+        const det = h('details', { class: 'tg-part', open: p.items.some((i) => !(st.items[i.id] || {}).r) && p.id === openPart() ? '' : null },
+          h('summary', {}, `${p.id}. ${p.title} `, h('span', { class: 'muted' }, `(${done}/${p.items.length})`)));
+        for (const i of p.items) det.append(itemEl(i));
+        root.append(det);
+      }
+      root.append(noteForm());
+      el.replaceChildren(root);
+    }
+    const openPart = () => { const p = PARTS.find((x) => x.items.some((i) => !(st.items[i.id] || {}).r)); return p ? p.id : ''; };
+
+    function itemEl(i) {
+      const cur = st.items[i.id] || { r: null, note: '', sev: '' };
+      const set = (r) => { st.items[i.id] = { ...cur, r: cur.r === r ? null : r }; save(); render(); };
+      const wrap = h('div', { class: `tg-item ${cur.r || ''}` },
+        h('div', { class: 'tg-what' }, h('b', {}, i.id + ' '), i.what),
+        h('div', { class: 'tg-expect muted' }, 'Esperado: ' + i.expect),
+        h('div', { class: 'tg-btns' },
+          h('button', { type: 'button', class: cur.r === 'ok' ? 'on-ok' : '', 'aria-pressed': String(cur.r === 'ok'), onclick: () => set('ok') }, '✅ Funcionou'),
+          h('button', { type: 'button', class: cur.r === 'fail' ? 'on-fail' : '', 'aria-pressed': String(cur.r === 'fail'), onclick: () => set('fail') }, '❌ Problema')));
+      if (cur.r) {
+        const note = h('textarea', { rows: '2', placeholder: cur.r === 'fail' ? 'O que aconteceu? (o que você viu)' : 'Comentário (opcional)', 'aria-label': `Nota do item ${i.id}` });
+        note.value = cur.note || '';
+        note.addEventListener('change', () => { st.items[i.id] = { ...(st.items[i.id] || cur), note: note.value.trim() }; save(); });
+        wrap.append(note);
+        if (cur.r === 'fail') {
+          const sev = h('select', { 'aria-label': `Gravidade do item ${i.id}` }, h('option', { value: '' }, 'Gravidade…'), ...Object.entries(SEVERITY).map(([k, v]) => h('option', { value: k }, v)));
+          sev.value = cur.sev || '';
+          sev.addEventListener('change', () => { st.items[i.id] = { ...(st.items[i.id] || cur), sev: sev.value }; save(); });
+          wrap.append(sev);
+        }
+      }
+      return wrap;
+    }
+
+    function noteForm() {
+      const where = h('input', { placeholder: 'Onde? (tela/parte)', 'aria-label': 'Onde' });
+      const text = h('textarea', { rows: '3', placeholder: 'O que aconteceu, faltou ou te incomodou?', 'aria-label': 'Observação' });
+      const sev = h('select', { 'aria-label': 'Gravidade' }, h('option', { value: '' }, 'Gravidade…'), ...Object.entries(SEVERITY).map(([k, v]) => h('option', { value: k }, v)));
+      const list = h('div', { class: 'tg-notes' }, st.notes.map((n, k) => h('div', { class: 'tg-note' },
+        h('span', {}, `${n.where ? `[${n.where}] ` : ''}${n.text}${n.sev ? ` (${n.sev})` : ''}`),
+        h('button', { type: 'button', 'aria-label': 'Remover observação', onclick: () => { st.notes.splice(k, 1); save(); render(); } }, '✕'))));
+      return h('details', { class: 'tg-part', open: st.notes.length ? '' : null },
+        h('summary', {}, '📝 Nova observação livre ', h('span', { class: 'muted' }, `(${st.notes.length})`)),
+        where, text, sev,
+        h('button', { type: 'button', onclick: () => {
+          if (!text.value.trim()) return;
+          st.notes.push({ where: where.value.trim(), text: text.value.trim(), sev: sev.value, at: Date.now() }); save(); render();
+        } }, 'Adicionar'), list);
+    }
+
+    const reportText = () => buildReport(st, { version: meta.version, when: new Date().toLocaleString('pt-BR') });
+    function say(msg) { const c = el.querySelector('#tg-copied'); if (c) c.textContent = msg; }
+    function copy() {
+      const t = reportText();
+      const fallback = () => {
+        const ta = doc.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0'; doc.body.append(ta); ta.select();
+        let ok = false; try { ok = doc.execCommand('copy'); } catch (e) { ok = false; } ta.remove(); say(ok ? 'Copiado! Cole no WhatsApp.' : 'Não consegui copiar; use "Baixar .txt".');
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => say('Copiado! Cole no WhatsApp.'), fallback); else fallback();
+    }
+    function download() {
+      const blob = new Blob([reportText()], { type: 'text/plain;charset=utf-8' }), a = doc.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'feedback-estudy.txt'; doc.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+    render();
+    return { refresh: render, report: reportText, state: () => st };
+  }
+
+  return { PARTS, SEVERITY, summarize, buildReport, emptyState, mount, KEY };
 });
 
 </script>
@@ -2083,6 +2443,8 @@ body.has-timer .chat-drawer { bottom: 292px; }
   'use strict';
   const C = window.Core;
   const K = window.Capacity;
+  const A = window.Alarm;
+  const APP_VERSION = 'sprint 1 · 15/10/2026';
   const KEY = 'estudy.mvp.v1';
   const HPX = 52; // altura de uma hora no calendário (deve coincidir com --hour no CSS)
   const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -2104,46 +2466,36 @@ body.has-timer .chat-drawer { bottom: 292px; }
     return fresh();
   }
   let state = load();
+  state.settings.config = { ...C.DEFAULT_CONFIG }; // valores FIXOS para blocos novos (25/5/4/15); cada bloco é customizado no cadastro
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* sem persistência */ } };
   const ui = { weekStart: C.mondayOf(new Date()), view: 'calendar', drag: null, minuteKey: '', timerSig: '' };
   const blockById = (id) => state.blocks.find((b) => b.id === id);
 
-  /* ---------- áudio e avisos ---------- */
-  let audio = null;
-  function unlockAudio() {
-    try {
-      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-      if (audio.state === 'suspended') audio.resume();
-    } catch (e) { /* sem áudio */ }
-  }
-  function beep(kind) {
-    if (!audio) return;
-    const notes = kind === 'focus_end' ? [880, 880, 880] : [523, 659, 784];
-    notes.forEach((f, i) => {
-      const o = audio.createOscillator(), g = audio.createGain();
-      o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(audio.destination);
-      const t = audio.currentTime + i * 0.35;
-      g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-      o.start(t); o.stop(t + 0.32);
-    });
-  }
+  /* ---------- alarme e avisos (ver js/alarm.js) ---------- */
+  const unlockAudio = () => A.unlock();
   const ALERT_TEXT = {
-    focus_end: '⏰ Foco encerrado! O tempo extra já está sendo contado como estudo. Continue, pause, inicie a pausa ou encerre a sessão.',
-    break_end: '☕ Pausa encerrada! O próximo foco só começa quando você clicar em "Iniciar foco".',
+    focus_end: '⏰ POMODORO ENCERRADO! O tempo extra já está sendo contado como estudo. Continue, pause, inicie a pausa ou encerre a sessão.',
+    break_end: '☕ PAUSA ENCERRADA! O próximo foco só começa quando você clicar em "Iniciar foco".',
   };
-  function showBanner(type) {
-    const el = $('#alert-banner');
-    el.innerHTML = `<span>${esc(ALERT_TEXT[type])}</span><button id="banner-close">Entendi</button>`;
-    el.hidden = false;
+  const ALERT_TITLE = { focus_end: 'POMO ENCERROU!', break_end: 'PAUSA ENCERROU!' };
+  function showBanner(type, soundBlocked) {
+    const el = $('#alert-banner'); el.textContent = '';
+    const sp = document.createElement('span'); sp.textContent = ALERT_TEXT[type] + (soundBlocked ? ' (O navegador bloqueou o som: clique em qualquer lugar da página para liberar.)' : '');
+    const sil = document.createElement('button'); sil.id = 'banner-silence'; sil.textContent = '🔕 Silenciar alarme';
+    const ok = document.createElement('button'); ok.id = 'banner-close'; ok.textContent = 'Entendi';
+    el.append(sp, sil, ok); el.hidden = false;
   }
+  const alarmSeconds = () => (Number.isFinite(state.settings.alarmSec) ? state.settings.alarmSec : A.DEFAULT_SECONDS);
+  const silenceAlarm = () => { A.stop(); A.stopFlash(); };
   function handleAlert() {
     const s = state.session;
     if (!s || s.alertSeq <= s.alertAck) return;
     s.alertAck = s.alertSeq; save();
-    beep(s.alert); showBanner(s.alert);
-    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-      try { new Notification('Estudy', { body: ALERT_TEXT[s.alert] }); } catch (e) { /* ignora */ }
-    }
+    const played = A.play(s.alert, alarmSeconds());
+    showBanner(s.alert, !played || !A.isReady());
+    const away = document.hidden || !document.hasFocus();
+    if (away) A.flashTitle(ALERT_TITLE[s.alert]);
+    if (away || !A.isReady()) A.notify('Estudy · ' + ALERT_TITLE[s.alert], ALERT_TEXT[s.alert].replace(/^[^ ]+ /, ''));
   }
 
   /* ---------- calendário ---------- */
@@ -2197,19 +2549,20 @@ body.has-timer .chat-drawer { bottom: 292px; }
     const m = (x) => dur(x * C.MIN);
     const lim = c.limitMin === null;
     const ov = state.weekOverrides[monday] && state.weekOverrides[monday].limitMin !== undefined;
-    const cards = [
-      [`Limite semanal${ov ? ' (exceção da semana)' : ''}`, lim ? 'sem limite' : m(c.limitMin)],
-      ['Carga planejada (estudo líquido)', m(c.plannedNetMin)],
-      [c.excessMin > 0 ? 'Excesso de planejamento' : 'Saldo para planejar', lim ? '—' : (c.excessMin > 0 ? m(c.excessMin) : m(c.balanceMin))],
-      ['Estudado na semana', m(Math.round(c.realizedMin))],
-      ['Restante previsto', m(c.remainingMin)],
-      ['Projeção da semana', m(Math.round(c.projectionMin))],
-      [c.projectedExcessMin > 0 ? 'Excesso projetado' : 'Margem disponível', lim ? '—' : (c.projectedExcessMin > 0 ? m(Math.round(c.projectedExcessMin)) : m(Math.round(c.marginMin)))],
-      ['Livre na agenda (daqui p/ frente)', m(c.freeAgendaMin)],
-    ];
-    const bad = new Set(['Excesso de planejamento', 'Excesso projetado']);
-    $('#capacity').innerHTML = cards.map(([l, v]) => `<div class="stat${bad.has(l) ? ' bad' : ''}"><span class="muted">${l}</span><b>${v}</b></div>`).join('') +
+    const card = (l, v, bad) => `<div class="stat${bad ? ' bad' : ''}"><span class="muted">${l}</span><b>${v}</b></div>`;
+    const over = c.excessMin > 0, pover = c.projectedExcessMin > 0;
+    // principais: o que o estudante olha todo dia
+    $('#capacity').innerHTML =
+      card(`Limite semanal${ov ? ' (só esta semana)' : ''}`, lim ? 'sem limite' : m(c.limitMin)) +
+      card('Planejado (estudo)', m(c.plannedNetMin)) +
+      card(over ? 'Excesso de planejamento' : 'Ainda cabe', lim ? '—' : (over ? m(c.excessMin) : m(c.balanceMin)), over) +
+      card('Estudado na semana', m(Math.round(c.realizedMin))) +
       (c.warnings.length ? `<div class="cap-warn">${c.warnings.map((w) => `⚠ ${esc(WARN[w])}`).join('<br>')}</div>` : '');
+    // detalhes: ficam recolhidos para não poluir a tela
+    const more = [card('Restante previsto', m(c.remainingMin)), card('Projeção da semana', m(Math.round(c.projectionMin)))];
+    if (pover) more.push(card('Excesso projetado', m(Math.round(c.projectedExcessMin)), true));
+    more.push(card('Livre na agenda (daqui p/ frente)', m(c.freeAgendaMin)));
+    $('#capacity-more').innerHTML = more.join('');
   }
 
   /** Blocos que se sobrepõem ficam lado a lado (colunas) em vez de um cobrir o outro. */
@@ -2361,7 +2714,7 @@ body.has-timer .chat-drawer { bottom: 292px; }
     const dlg = $('#dlg-block');
     const b = id ? blockById(id) : null;
     const v = b || { subject: '', title: '', date: date || C.isoDate(new Date()), start: start || '08:00', estimated: 1,
-      config: { ...state.settings.config }, pdf: '', pages: '', studied: '', questions: null, hits: null, notes: '', completed: false, sessions: [],
+      config: { ...C.DEFAULT_CONFIG }, pdf: '', pages: '', studied: '', questions: null, hits: null, notes: '', completed: false, sessions: [],
       kind: 'estudo', reviewOf: null, priority: null, deadline: null, fixed: false, remainingMin: null, ...(prefill || {}) };
     const cfg = v.config;
     const st = b ? C.blockStatus(b, new Date()) : null;
@@ -2370,41 +2723,35 @@ body.has-timer .chat-drawer { bottom: 292px; }
     const subjects = [...new Set(state.blocks.map((x) => x.subject))];
     dlg.innerHTML = `<form method="dialog" id="block-form" novalidate>
       <h3>${b ? 'Bloco de estudo' : 'Novo bloco de estudo'} ${b ? `<span class="chip st-${st}">${C.STATUS_LABEL[st]}</span>${active ? ' <span class="tag run">● Em andamento</span>' : ''}` : ''}</h3>
-      <fieldset><legend>Planejamento</legend><div class="form-grid">
+      <fieldset><legend>Planejamento</legend><div class="form-grid g2">
         <label>Matéria *<input name="subject" list="subjects" value="${esc(v.subject)}" required></label>
         <label>Assunto / título *<input name="title" value="${esc(v.title)}" required></label>
-        <label>Dia *<input type="date" name="date" value="${esc(v.date)}" required></label>
-        <label>Início *<input type="time" name="start" value="${esc(v.start)}" required></label>
-        <label>Pomodoros estimados *<input type="number" name="estimated" min="1" step="1" value="${v.estimated}" required></label>
-        <label>PDF (nome ou link)<input name="pdf" value="${esc(v.pdf)}"></label>
-        <label>Páginas / trecho previsto<input name="pages" value="${esc(v.pages)}"></label>
+        <label>Prioridade<select name="priority"><option value="">Sem prioridade</option>${[['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, l]) => `<option value="${k}"${v.priority === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
         <label>Tipo<select name="kind"><option value="estudo"${v.kind === 'estudo' ? ' selected' : ''}>Estudo</option><option value="revisao"${v.kind === 'revisao' ? ' selected' : ''}>Revisão</option></select></label>
-        <label>Prioridade<select name="priority"><option value="">—</option>${[['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, l]) => `<option value="${k}"${v.priority === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
-        <label>Prazo (opcional)<input type="date" name="deadline" value="${esc(v.deadline || '')}"></label>
-        <label class="check"><input type="checkbox" name="fixed"${v.fixed ? ' checked' : ''}> Horário obrigatório (não mover automaticamente)</label>
-        ${b ? `<label>Restante previsto (min de estudo)<input name="remaining" inputmode="numeric" placeholder="automático" value="${esc(v.remainingMin ?? '')}"></label>` : ''}
+        <label>Data *<input type="date" name="date" value="${esc(v.date)}" required></label>
+        <label>Início *<input type="time" name="start" value="${esc(v.start)}" required></label>
       </div>
       <datalist id="subjects">${subjects.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
-      <details style="margin-top:8px"><summary>Pomodoro deste bloco (copiado do padrão; ajuste se precisar)</summary><div class="form-grid" style="margin-top:8px">
+      <details open class="pomo-box"><summary>🍅 Pomodoros deste bloco</summary><div class="form-grid g2" style="margin-top:8px">
+        <label>Pomodoros estimados *<input type="number" name="estimated" min="1" step="1" value="${v.estimated}" required></label>
         <label>Foco (min)<input type="number" name="focusMin" min="1" step="1" value="${cfg.focusMin}"></label>
         <label>Pausa curta (min)<input type="number" name="shortMin" min="1" step="1" value="${cfg.shortMin}"></label>
         <label>Pomodoros até a pausa longa<input type="number" name="longEvery" min="1" step="1" value="${cfg.longEvery}"></label>
         <label>Pausa longa (min)<input type="number" name="longMin" min="1" step="1" value="${cfg.longMin}"></label>
-        <div class="wide"><button type="button" id="use-default">Usar configuração padrão atual</button></div>
       </div></details>
       <div class="preview" id="plan-preview"></div><div class="preview" id="cap-preview"></div></fieldset>
-      ${b ? `<fieldset><legend>Execução</legend><div class="form-grid">
-        <label class="wide">Conteúdo / páginas efetivamente estudados<input name="studied" value="${esc(v.studied)}"></label>
+      ${b ? `<fieldset><legend>Execução</legend><div class="form-grid g2">
+        <label class="wide">Link do material (PDF, aula…)<input name="pdf" value="${esc(v.pdf)}" placeholder="https://… ou nome do arquivo"></label>
         <label>Questões respondidas<input name="questions" inputmode="numeric" value="${esc(v.questions ?? '')}"></label>
         <label>Acertos<input name="hits" inputmode="numeric" value="${esc(v.hits ?? '')}"></label>
-        <div class="field">Erros / Taxa de acerto<b id="res-calc"></b></div>
+        <div class="field wide">Erros / Taxa de acerto<b id="res-calc"></b></div>
         <label class="wide">Observações (dificuldades, conteúdo pendente)<textarea name="notes" rows="3">${esc(v.notes)}</textarea></label></div>
         <div class="preview"><b>Realizado:</b> foco regular ${dur(real.focusMs)} + extra ${dur(real.extraMs)} = <b>${dur(real.studyMs)}</b> estudados
           · descanso ${dur(real.restMs)} · interrupções ${dur(real.interruptMs)}<br>
           Pomodoros completos: ${pom.complete} de ${v.estimated} estimados · ciclos parciais: ${pom.partial}</div>
         <details style="margin-top:8px"><summary>Sessões (${v.sessions.length})</summary>${sessionsHtml(b)}</details></fieldset>` : ''}
       <div class="errors" id="block-errors"></div>
-      <div class="actions">
+      <div class="actions sticky">
         <div class="left">${b ? `<button type="button" id="b-timer" class="primary">${active ? '⏱ Abrir cronômetro' : (b.sessions.length ? '⏱ Retomar estudo (nova sessão)' : '⏱ Iniciar cronômetro')}</button>
           ${b.kind !== 'revisao' ? '<button type="button" id="b-review">＋ Agendar revisão</button>' : ''}
           <button type="button" id="b-toggle">${b.completed ? '↺ Reabrir bloco' : '✔ Marcar como concluído'}</button>
@@ -2416,10 +2763,10 @@ body.has-timer .chat-drawer { bottom: 292px; }
 
     const gatherPlan = () => ({
       subject: read('subject').trim(), title: read('title').trim(), date: read('date'), start: read('start'),
-      estimated: numVal(read('estimated')), pdf: read('pdf').trim(), pages: read('pages').trim(),
+      estimated: numVal(read('estimated')),
       config: { focusMin: numVal(read('focusMin')), shortMin: numVal(read('shortMin')), longEvery: numVal(read('longEvery')), longMin: numVal(read('longMin')) },
-      kind: read('kind') || 'estudo', priority: read('priority') || null, deadline: read('deadline') || null,
-      fixed: !!(form.elements.fixed && form.elements.fixed.checked),
+      kind: read('kind') || 'estudo', priority: read('priority') || null,
+      ...(form.elements.pdf ? { pdf: read('pdf').trim() } : {}), // campos fora da tela (páginas, prazo, obrigatório, restante) são preservados
     });
     // Efeito do bloco sobre a capacidade da semana de destino (sem salvar nada).
     const capInfo = (data) => {
@@ -2465,9 +2812,8 @@ body.has-timer .chat-drawer { bottom: 292px; }
       if (b) {
         const r = C.validateResult(read('questions'), read('hits'));
         errs.push(...r.errors);
-        Object.assign(data, { studied: read('studied').trim(), notes: read('notes').trim(), questions: r.questions, hits: r.hits });
-        const rm = parseCountLocal(read('remaining'));
-        if (rm.error) errs.push('Restante previsto: use apenas números inteiros não negativos.'); else data.remainingMin = rm.value;
+        Object.assign(data, { notes: read('notes').trim(), questions: r.questions, hits: r.hits });
+
       }
       $('#block-errors', dlg).innerHTML = errs.map((m) => `<div>${esc(m)}</div>`).join('');
       return errs.length ? null : data;
@@ -2481,7 +2827,6 @@ body.has-timer .chat-drawer { bottom: 292px; }
       save(); return true;
     };
     form.addEventListener('input', refresh);
-    $('#use-default', dlg).onclick = () => { Object.entries(state.settings.config).forEach(([k, val]) => { form.elements[k].value = val; }); refresh(); };
     $('#b-cancel', dlg).onclick = () => dlg.close();
     form.addEventListener('submit', (e) => { e.preventDefault(); const d = collect(); if (!d || !guardCapacity(d)) return; commit(d); dlg.close(); render(); });
     if (b) {
@@ -2515,7 +2860,7 @@ body.has-timer .chat-drawer { bottom: 292px; }
   /* ---------- cronômetro ---------- */
   function startTimer(blockId) {
     unlockAudio();
-    if ('Notification' in window && Notification.permission === 'default') { try { Notification.requestPermission(); } catch (e) { /* ignora */ } }
+    if (A.permission() === 'default') A.requestPermission(); // pede a permissão de notificação no primeiro cronômetro
     if (state.session) {
       if (state.session.blockId === blockId) { $('#timer').scrollIntoView({ block: 'end' }); return true; }
       const other = blockById(state.session.blockId);
@@ -2529,7 +2874,7 @@ body.has-timer .chat-drawer { bottom: 292px; }
   function timerAction(act) {
     const s = state.session; if (!s) return;
     const now = Date.now();
-    unlockAudio();
+    unlockAudio(); silenceAlarm(); // qualquer ação sua no cronômetro silencia o alarme
     if (act === 'pause') C.pause(s, now);
     else if (act === 'resume') C.resume(s, now);
     else if (act === 'break') C.startBreak(s, now);
@@ -2585,15 +2930,14 @@ body.has-timer .chat-drawer { bottom: 292px; }
 
   /* ---------- configurações ---------- */
   function openSettings() {
-    const dlg = $('#dlg-settings'), c = state.settings.config, av = state.settings.availability, cl = state.settings.closing;
+    const dlg = $('#dlg-settings'), av = state.settings.availability, cl = state.settings.closing;
     dlg.innerHTML = `<form method="dialog" id="set-form" novalidate><h3>Configurações</h3>
-      <fieldset><legend>Pomodoro padrão</legend>
-      <p class="muted">Vale para novos blocos. Blocos e sessões já criados mantêm a configuração que tinham.</p>
-      <div class="form-grid">
-        <label>Foco (min)<input type="number" name="focusMin" min="1" step="1" value="${c.focusMin}"></label>
-        <label>Pausa curta (min)<input type="number" name="shortMin" min="1" step="1" value="${c.shortMin}"></label>
-        <label>Pomodoros até a pausa longa<input type="number" name="longEvery" min="1" step="1" value="${c.longEvery}"></label>
-        <label>Pausa longa (min)<input type="number" name="longMin" min="1" step="1" value="${c.longMin}"></label></div></fieldset>
+      <fieldset><legend>Alarme e notificações</legend>
+      <p class="muted">Quando o pomodoro ou a pausa acaba, o app toca o alarme, pisca o título da aba e mostra uma notificação no canto da tela.</p>
+      <div class="form-grid"><label>Duração do alarme<select name="alarmSec">${[[10, '10 segundos'], [30, '30 segundos'], [60, '1 minuto'], [300, 'Até eu silenciar (máx. 5 min)']].map(([k, l]) => `<option value="${k}"${alarmSeconds() === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+        <div class="field">Notificação no canto da tela<b id="notif-status"></b></div></div>
+      <div class="actions" style="justify-content:flex-start"><button type="button" id="alarm-test">🔔 Testar alarme</button><button type="button" id="alarm-stop">🔕 Parar</button><button type="button" id="notif-enable">Ativar notificações</button></div>
+      <p class="muted" id="notif-hint"></p></fieldset>
       <fieldset><legend>Limite semanal e disponibilidade (rotina padrão)</legend>
       <p class="muted">O limite conta só tempo de <b>estudo</b> (sem pausas). Não é meta de preenchimento. Exceções de uma semana ficam em "Semana" no calendário e não alteram esta rotina.</p>
       <div class="form-grid"><label>Limite semanal de estudo (horas líquidas; vazio = sem limite)<input name="limitH" inputmode="decimal" value="${minToHours(state.settings.weeklyLimitMin)}"></label>
@@ -2610,17 +2954,25 @@ body.has-timer .chat-drawer { bottom: 292px; }
     $('#set-cancel', dlg).onclick = () => dlg.close();
     f.addEventListener('submit', (e) => {
       e.preventDefault();
-      const cfg = {}; ['focusMin', 'shortMin', 'longEvery', 'longMin'].forEach((k) => { cfg[k] = numVal(f.elements[k].value); });
-      const errs = C.validateConfig(cfg);
+      const errs = [];
       const lim = hoursToMin(f.elements.limitH.value); if (lim.error) errs.push('Limite semanal: informe horas (ex.: 20 ou 22,5) ou deixe vazio.');
       const days = {};
       for (let d = 1; d <= 7; d++) { const r = parseRanges(f.elements['day' + d].value, WD[d]); if (r.error) errs.push(r.error); else if (r.ranges.length) days[d] = r.ranges; }
       const un = parseUnavail(f.elements.unavail.value); if (un.error) errs.push(un.error);
       $('#set-errors', dlg).innerHTML = errs.map((m) => `<div>${esc(m)}</div>`).join('');
       if (errs.length) return;
-      Object.assign(state.settings, { config: cfg, weeklyLimitMin: lim.value, availability: { days, unavailable: un.list }, closing: { day: Number(f.elements.closeDay.value), time: f.elements.closeTime.value || '21:00' } });
+      Object.assign(state.settings, { alarmSec: Number(f.elements.alarmSec.value), weeklyLimitMin: lim.value, availability: { days, unavailable: un.list }, closing: { day: Number(f.elements.closeDay.value), time: f.elements.closeTime.value || '21:00' } });
       save(); dlg.close(); render();
     });
+    const notifStatus = () => {
+      const p = A.permission(), t = { granted: 'Ativadas ✓', denied: 'Bloqueadas (libere nas configurações do navegador)', default: 'Ainda não ativadas', unsupported: 'Não suportadas neste navegador' }[p];
+      $('#notif-status', dlg).textContent = t;
+      $('#notif-hint', dlg).textContent = location.protocol === 'file:' ? 'Abrindo o arquivo direto do computador, alguns navegadores bloqueiam notificações. Se não aparecerem, avise o dono do projeto (o som e o título piscando continuam funcionando).' : '';
+    };
+    notifStatus();
+    $('#alarm-test', dlg).onclick = () => { unlockAudio(); A.play('focus_end', 6); A.notify('Estudy · teste', 'Se você viu isto, as notificações estão funcionando.'); };
+    $('#alarm-stop', dlg).onclick = silenceAlarm;
+    $('#notif-enable', dlg).onclick = () => { A.requestPermission().then(notifStatus); };
     $('#demo', dlg).onclick = () => { loadDemo(); dlg.close(); render(); };
     $('#wipe', dlg).onclick = () => { if (confirm('Apagar blocos, sessões e configurações?')) { state = fresh(); save(); dlg.close(); render(); } };
     dlg.showModal();
@@ -2825,7 +3177,8 @@ body.has-timer .chat-drawer { bottom: 292px; }
     unlockAudio();
     if (ui.soundNotice && !e.target.closest('#banner-close')) { ui.soundNotice = false; $('#alert-banner').hidden = true; }
     const a = e.target.closest('[data-act]'); if (a && a.closest('#timer')) timerAction(a.dataset.act);
-    if (e.target.id === 'banner-close') $('#alert-banner').hidden = true;
+    if (e.target.id === 'banner-silence') silenceAlarm();
+    if (e.target.id === 'banner-close') { $('#alert-banner').hidden = true; silenceAlarm(); }
     const ob = e.target.closest('[data-open-block]'); if (ob) { e.preventDefault(); openBlockDialog({ id: ob.dataset.openBlock }); }
   });
   document.addEventListener('keydown', unlockAudio, { once: true });
@@ -2842,7 +3195,7 @@ body.has-timer .chat-drawer { bottom: 292px; }
   $('#w-refresh').addEventListener('click', () => { const wk = $('#w-week').value; if (W) { state.reports = { ...state.reports, [wk]: W.buildWeeklyReport(state, wk, Date.now()) }; save(); } renderWeekly(); });
   $('#f-clear').addEventListener('click', () => { $('#report-filters').reset(); renderReports(); });
   window.addEventListener('storage', (e) => { if (e.key === KEY) { state = load(); ui.timerSig = ''; render(); } });
-  document.addEventListener('visibilitychange', tick);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) A.stopFlash(); tick(); });
 
   /* ---------- gerar cronograma (requisito 08): propõe, deixa revisar e só grava após confirmar ---------- */
   function openScheduleDialog() {
@@ -2926,7 +3279,15 @@ body.has-timer .chat-drawer { bottom: 292px; }
 
   /* ---------- assistente (chat): só interpreta; cálculos e gravação passam pelos módulos ---------- */
   let chat = null;
+  let guide = null;
+  function toggleGuide() {
+    const dr = $('#guide-drawer'), open = dr.hidden;
+    if (open && !$('#chat-drawer').hidden) toggleChat(); // um painel lateral por vez
+    dr.hidden = !open; document.body.classList.toggle('chat-open', open);
+    if (open && !guide && window.TestGuide) guide = window.TestGuide.mount(dr, { version: APP_VERSION });
+  }
   function toggleChat() {
+    if (!$('#guide-drawer').hidden) toggleGuide();
     const dr = $('#chat-drawer'), open = dr.hidden;
     dr.hidden = !open; document.body.classList.toggle('chat-open', open);
     if (open && !chat && window.Chat) {
@@ -2938,6 +3299,8 @@ body.has-timer .chat-drawer { bottom: 292px; }
     }
   }
   $('#btn-chat').addEventListener('click', toggleChat);
+  $('#btn-guide').addEventListener('click', toggleGuide);
+  $('#app-version').textContent = APP_VERSION;
   /** Faixa de aviso reaproveitando #alert-banner. */
   function showNotice(text, soundHint) {
     const el = $('#alert-banner'); el.textContent = '';
@@ -2952,7 +3315,15 @@ body.has-timer .chat-drawer { bottom: 292px; }
   bindCalendar();
   render();
   handleAlert();
-  setInterval(tick, 500);
+  /* Relógio em Web Worker: o navegador atrasa timers de abas escondidas (até 1×/min); o worker não, então o alarme dispara na hora. */
+  (function startTicker() {
+    try {
+      const blob = new Blob(['setInterval(function(){postMessage(1)},500)'], { type: 'text/javascript' });
+      const w = new Worker(URL.createObjectURL(blob)); w.onmessage = tick; return;
+    } catch (e) { /* sem worker: usa timer comum */ }
+    setInterval(tick, 500);
+  })();
+  window.addEventListener('focus', () => A.stopFlash());
 })();
 
 </script>

@@ -217,3 +217,19 @@ Alvos: **Estudei, Rotinizze, TickTick, Focus Keeper, Notion Calendar, Todoist e 
 Para cada um, registrar em `docs/concorrentes/<nome>.md`: funcionalidades (calendário, blocos, pomodoro/tempo extra, questões e acertos,
 relatórios, metas/limite, revisões, chat/IA, offline, preço) e design (densidade, cor de status, navegação, onboarding, mobile, tema escuro,
 esforço para criar um bloco). Consolidar em matriz comparativa e extrair *o que adotar / evitar / diferenciar*.
+
+
+---
+
+# Sprints 7–10 — Feedback do sócio (15/10/2026)
+
+**Decisões do dono:** pausa NÃO existe após o último pomodoro (mantém); "Margem disponível" sai da tela; blocos novos sempre com pomodoro fixo 25/5/4/15 (sem "Pomodoro padrão"), cada bloco é totalmente customizável no cadastro; alarme toca até ser silenciado (máx. 5 min); modo foco ativo no foco, no extra e na pausa, com saída só por "Encerrar"; bloco pendente por conflito só conta no limite depois de confirmado.
+
+| Sprint | Meta | Itens | Estado |
+|---|---|---|---|
+| 7 — Alerta e cadastro enxuto | Nunca perder o fim do pomodoro; cadastrar mais rápido; teste guiado | Alarme forte e repetido + notificação do sistema + título piscando + "Silenciar"; relógio em Web Worker (alarme pontual em aba escondida); cadastro com ordem Matéria/Assunto/Prioridade/Tipo/Data/Início + seção de pomodoros aberta; Link do material na Execução; sem Páginas/PDF/Prazo/Obrigatório/Restante no cadastro; Configurações (alarme, limite, disponibilidade); painel de capacidade enxuto; **Roteiro de teste dentro do app** (✅/❌, notas, copiar feedback p/ WhatsApp) | **Feito** |
+| 8 — Reserva total e conflito | Nunca dois blocos no mesmo horário | `js/conflict.js` (motor) → tela: bloco laranja ⚠ pendente, pop-up "Opa! Essa pausa já tem dono ☕", MOVER PARA DEPOIS DE / ESCOLHER OUTRO HORÁRIO, regras de espaço, horários colados, migração de dados antigos | Em andamento (briefing: `docs/SPRINT2-CONFLITO.md`) |
+| 9 — Modo foco e hospedagem | Estudar sem distração | Tela cheia com o cronômetro, calendário bloqueado, saída só por Encerrar; publicar o app em endereço web (notificações em HTTPS) | A fazer |
+| 10 — Validação | Fechar o ciclo | Reteste do sócio com o roteiro in-app, correções | A fazer |
+
+**Limites conhecidos do alerta:** com a aba **fechada** ou o computador suspenso, nenhum site consegue avisar sem um servidor de notificações (push); com a aba aberta em segundo plano, o alarme, a notificação e o título piscando funcionam. Abrindo o arquivo direto do disco, alguns navegadores bloqueiam notificações; o app avisa isso em Configurações.
