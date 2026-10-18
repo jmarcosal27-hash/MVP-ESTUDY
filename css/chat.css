@@ -1,0 +1,26 @@
+/* Painel do chat. Usa as variáveis de cor do app (com valores de reserva) e só estiliza .chat. */
+.chat { display: flex; flex-direction: column; gap: 8px; min-height: 0; height: 100%; font-size: 14px; color: var(--text, #1d2433); }
+.chat-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chat-head button { font-size: 12px; padding: 3px 8px; }
+.chat-head button:disabled { opacity: .5; cursor: default; }
+.chat-banner { background: var(--red-bg, #ffe3e3); color: var(--red, #c92a2a); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.chat-banner[hidden] { display: none; }
+.chat-list { flex: 1; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; }
+.chat-msg { max-width: 92%; padding: 6px 10px; border-radius: 10px; line-height: 1.4; overflow-wrap: anywhere; }
+.chat-user { align-self: flex-end; background: var(--accent, #3b5bdb); color: #fff; }
+.chat-assistant { align-self: flex-start; background: var(--surface, #fff); border: 1px solid var(--line, #dfe3ec); }
+.chat-system { align-self: flex-start; background: var(--bg, #f4f6fa); border: 1px dashed var(--line, #dfe3ec); color: var(--muted, #6a7389); font-size: 13px; }
+.chat-card { align-self: stretch; background: var(--surface, #fff); border: 1px solid var(--accent, #3b5bdb); border-radius: 10px; padding: 8px 10px; }
+.chat-card.done { opacity: .6; border-color: var(--line, #dfe3ec); }
+.chat-card p { margin: 6px 0; }
+.chat-card-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.chat-card ul { margin: 4px 0; padding-left: 18px; }
+.chat-warn { color: var(--warn, #e67700); }
+.chat-conf { color: var(--red, #c92a2a); }
+.chat-cap, .chat-info { color: var(--muted, #6a7389); font-size: 12px; }
+.chat-day { font-size: 13px; margin: 2px 0; }
+.chat-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.chat-actions button:disabled { opacity: .5; cursor: default; }
+.chat-form { display: flex; gap: 6px; align-items: flex-end; }
+.chat-input { flex: 1; resize: vertical; min-height: 40px; max-height: 140px; }
+.chat-form button { align-self: stretch; }
